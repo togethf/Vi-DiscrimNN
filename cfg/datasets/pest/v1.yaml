@@ -1,0 +1,40 @@
+# Ultralytics YOLO 🚀, AGPL-3.0 license
+# PASCAL VOC dataset http://host.robots.ox.ac.uk/pascal/VOC by University of Oxford
+# Documentation: # Documentation: https://docs.ultralytics.com/datasets/detect/voc/
+# Example usage: yolo train data=VOC.yaml
+# parent
+# ├── ultralytics
+# └── datasets
+#     └── VOC  ← downloads here (2.8 GB)
+
+# Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
+path: /home/insslab/Desktop/datasets/RicePestsV1/VOCdevkit/images
+train: # train images (relative to 'path')  16551 images
+  - train
+val: # val images (relative to 'path')  4952 images
+  - val
+test: # test images (optional)
+  - test
+
+# Classes
+names:
+  0: DaoZhong_Zheng
+  1: DaoZhong_Bei
+  2: ErHua_Zheng
+  3: ErHua_Bei
+  4: ErHuaShen_Zheng
+  5: ErHuaShen_Bei
+  6: DaMing_Zheng
+  7: DaMing_Bei
+  8: DaMingShen_Zheng
+  9: DaMingShen_Bei
+  10: DaoMingLin_Zheng
+  11: DaoMingLin_Bei
+  12: YuMi_Zheng
+  13: YuMi_Bei
+  14: YangXue_Zheng
+  15: YangXue_Bei
+  16: LouGu_Zheng
+  17: LouGu_Bei
+  18: JinGui_Zheng
+  19: JinGui_Bei
