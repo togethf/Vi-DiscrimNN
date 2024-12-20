@@ -2,7 +2,8 @@ import torch
 from ultralytics import YOLO
 from config import tag_config, pestv3_config
 from commons.dataset import ClassifyDataset
-from torch.utils.data import DataLoader, random_split
+from torch import nn
+from torch.utils.data import DataLoader, random_split, WeightedRandomSampler
 from sklearn.utils.class_weight import compute_class_weight
 from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
@@ -15,6 +16,7 @@ from torchvision.models import shufflenet_v2_x0_5, ShuffleNet_V2_X0_5_Weights, s
 from sklearn.utils.class_weight import compute_class_weight
 import numpy as np
 import os
+import torch.nn.functional as F
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR                                                                      
 from sklearn.metrics import classification_report, confusion_matrix
@@ -105,39 +107,74 @@ def calculate_accuracy(outputs, labels):
     total = labels.size(0)
     return correct / total
 
+# Combined loss function
+class CombinedLoss(nn.Module):
+    def __init__(self, weight=None, gamma=2.0, smoothing=0.1):
+        super(CombinedLoss, self).__init__()
+        self.ce_loss = nn.CrossEntropyLoss(weight=weight)
+        self.gamma = gamma
+        self.smoothing = smoothing
+
+    def focal_loss(self, logits, labels):
+        ce_loss = nn.CrossEntropyLoss(weight=self.ce_loss.weight, reduction='none')(logits, labels)
+        pt = torch.exp(-ce_loss)
+        focal_loss = ((1 - pt) ** self.gamma) * ce_loss
+        return focal_loss
+
+    def label_smoothing_loss(self, logits, labels):
+        num_classes = logits.size(1)
+        log_probs = torch.log_softmax(logits, dim=1)
+        labels_one_hot = F.one_hot(labels, num_classes).float()
+        smoothed_labels = (1 - self.smoothing) * labels_one_hot + self.smoothing / num_classes
+        loss = -(smoothed_labels * log_probs).sum(dim=1)
+        return loss
+
+    def forward(self, logits, labels):
+        loss_ce = self.ce_loss(logits, labels)
+        loss_focal = self.focal_loss(logits, labels).mean()
+        loss_smooth = self.label_smoothing_loss(logits, labels).mean()
+        return 0.4 * loss_ce + 0.4 * loss_focal + 0.2 * loss_smooth
+
 def main():
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    # Define transformations for training and validation
+
+    # Define transformations with data augmentation
     train_transform = transforms.Compose([
         transforms.Resize((640, 640)),
         transforms.RandomHorizontalFlip(),
         transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+        transforms.RandomRotation(15),
+        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
         transforms.ToTensor(),
-        # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
 
     val_transform = transforms.Compose([
         transforms.Resize((640, 640)),
         transforms.ToTensor(),
-        # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
 
     cls = get_model(1, device)
-    # Create datasets
-    train_dataset = ClassifyDataset(img_dir=tag_config['output_dir'], transform=train_transform, train=True)
-    val_dataset = ClassifyDataset(img_dir=tag_config['output_dir'], transform=val_transform, train=False)
 
-    trainloader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=8)
+    # Create datasets
+    train_dataset = ClassifyDataset(img_dir='out/trainval', transform=train_transform, train=True)
+    val_dataset = ClassifyDataset(img_dir='out/trainval', transform=val_transform, train=False)
+
+    # Compute class weights and use WeightedRandomSampler
+    easy_label = np.array(train_dataset.n_easy * [0])
+    diff_label = np.array(train_dataset.n_diff * [1])
+    all_label = np.concat((easy_label, diff_label), axis=None) 
+    class_weights = compute_class_weight('balanced', classes=np.unique(all_label), y=all_label)
+
+    sample_weights = np.array([class_weights[label] for label in all_label])
+    class_weights = torch.tensor(class_weights, dtype=torch.float).to(device)
+    sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
+
+    trainloader = DataLoader(train_dataset, batch_size=32, sampler=sampler, num_workers=16)
     valloader = DataLoader(val_dataset, batch_size=32, shuffle=False, num_workers=8)
 
-
-    # 损失函数与优化器
-    # Assuming you have labels as a list or numpy array
-    # class_weights = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
-    class_weights = np.array([1, 4])
-    class_weights = torch.tensor(class_weights, dtype=torch.float).to(device)
-    criterion = CrossEntropyLoss(weight=class_weights)
-    optimizer = AdamW(cls.parameters(), lr=0.001, weight_decay=1e-4)
+    # Loss function and optimizer
+    criterion = CombinedLoss(weight=class_weights)
+    optimizer = AdamW(cls.parameters(), lr=0.002, weight_decay=1e-4)
     scheduler = CosineAnnealingLR(optimizer, T_max=10)
 
     writer = SummaryWriter(log_dir='./logs')
@@ -166,7 +203,7 @@ def main():
         writer.add_scalar('Training Loss', avg_train_loss, epoch)
         writer.add_scalar('Training Accuracy', train_acc, epoch)
 
-        # 验证
+        # Validation
         cls.eval()
         val_loss, val_corrects, val_total = 0.0, 0, 0
         all_preds, all_labels = [], []
@@ -201,8 +238,10 @@ def main():
 
         if val_f1 > best_val_f1:
             best_val_f1 = val_f1
-            torch.save(cls.state_dict(), os.path.join('checkpoint', 'classifier', 'best_model.pth'))
+            os.makedirs('checkpoint/classifier', exist_ok=True)
+            torch.save(cls.state_dict(), os.path.join('checkpoint/classifier', 'best_model.pth'))
 
     writer.close()
+
 if __name__ == '__main__':
     main()

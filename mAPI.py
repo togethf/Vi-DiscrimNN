@@ -136,7 +136,7 @@ def main():
             transforms.ToTensor()
         ])
         # 划分数据集 begin
-        for images, labels in dataloader:
+        for images, labels in tqdm(dataloader):
             if len(labels.shape) == 1:
                 classes += []
             else:
@@ -146,8 +146,8 @@ def main():
             image = Image.open(images[0]).convert('RGB')
             image = tsf(image)
             image.to(device)
-            wouts = weak(image)
-            souts = strong(image)
+            wouts = weak(image, verbose=False)
+            souts = strong(image, verbose=False)
 
             labels = labels.to(device)
 

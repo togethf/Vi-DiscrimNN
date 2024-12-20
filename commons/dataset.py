@@ -36,30 +36,34 @@ class ClassifyDataset(Dataset):
         self.train = train  # A flag to distinguish between train and validation sets
         
         # Load paths and labels along with difficulty information
-        self.paths, self.labels = self._load_data()
+        self.paths, self.labels, self.n_easy, self.n_diff = self._load_data()
         self.length = len(self.paths)
 
     def _load_data(self):
         paths = []
         labels = []
+        n_easy = 0
+        n_diff = 0
 
         # Define directories based on train/val split
-        easy_images_dir = os.path.join(self.img_dir, 'train' if self.train else 'val', 'easy', 'images')
-        diff_images_dir = os.path.join(self.img_dir, 'train' if self.train else 'val', 'diff', 'images')
+        easy_images_dir = os.path.join(self.img_dir, 'easy', 'images', 'train' if self.train else 'val')
+        diff_images_dir = os.path.join(self.img_dir, 'diff', 'images', 'train' if self.train else 'val')
 
         # Load easy images
         if os.path.exists(easy_images_dir):
             easy_image_files = [os.path.join(easy_images_dir, name) for name in os.listdir(easy_images_dir) if name.lower().endswith(('.png', '.jpg', '.jpeg'))]
             paths.extend(easy_image_files)
             labels.extend([0] * len(easy_image_files))  # Assuming 0 for easy
+            n_easy = len(easy_image_files)
 
         # Load difficult images
         if os.path.exists(diff_images_dir):
             diff_image_files = [os.path.join(diff_images_dir, name) for name in os.listdir(diff_images_dir) if name.lower().endswith(('.png', '.jpg', '.jpeg'))]
             paths.extend(diff_image_files)
             labels.extend([1] * len(diff_image_files))  # Assuming 1 for difficult
+            n_diff = len(diff_image_files)
 
-        return paths, labels
+        return paths, labels, n_easy, n_diff
 
     def __len__(self):
         return self.length

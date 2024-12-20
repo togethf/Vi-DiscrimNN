@@ -209,7 +209,7 @@ class ViDiscrimNN(nn.Module):
             else:  # difficult
                 diffs.append(idx)
         if len(easys) > 0:
-            eouts = self.weak_det.predict(X[easys], verbose=False)
+            eouts = self.strong_det.predict(X[easys], verbose=False)
         if len(diffs) > 0:
             douts = self.strong_det.predict(X[diffs], verbose=False)
 
