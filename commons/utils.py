@@ -2,6 +2,9 @@ import os
 from PIL import Image
 from thop import profile
 import torch
+import os
+import shutil
+from PIL import Image
 
 def extract_label_full(file):
     """提取yolo的标签文件，返回[cls, x, y, w, h]
@@ -38,18 +41,35 @@ def model_summary(model, input):
     print("FLOPs: {:.2f}G".format(flops / 1e9)) 
     print("params: ", params)
 
-def save(images, labels, output_dir):
-    """_summary_
+def save(images, labels, output_dir, clear_dir=False):
+    """保存图像和标签，并在需要时清空目标目录。
 
     Args:
-        images (list)): 所有图片路径
+        images (list): 所有图片路径
         labels (list): 所有的标签路径
         output_dir (str): 要保存的位置
+        clear_dir (bool): 是否清空目标目录，默认为 False
     """
+    # 如果清空目录
+    if clear_dir:
+        # 删除图像和标签文件夹及其内容
+        image_dir = os.path.join(output_dir, 'images', 'val')
+        label_dir = os.path.join(output_dir, 'labels', 'val')
+        
+        if os.path.exists(image_dir):
+            shutil.rmtree(image_dir)
+        if os.path.exists(label_dir):
+            shutil.rmtree(label_dir)
+        
+        # 重新创建文件夹
+        os.makedirs(image_dir, exist_ok=True)
+        os.makedirs(label_dir, exist_ok=True)
+        print(f"Cleared the directories: {image_dir} and {label_dir}")
 
-    # 确保输出目录存在
-    os.makedirs(os.path.join(output_dir, 'images', 'val'), exist_ok=True)
-    os.makedirs(os.path.join(output_dir, 'labels', 'val'), exist_ok=True)
+    # 如果不清空，直接确保目录存在
+    else:
+        os.makedirs(image_dir, exist_ok=True)
+        os.makedirs(label_dir, exist_ok=True)
 
     saved_count = 0  # 计数器，记录保存的图像和标签数量
 
@@ -61,15 +81,16 @@ def save(images, labels, output_dir):
         filename = os.path.splitext(os.path.basename(img_path))[0]
 
         # 保存图像
-        img.save(os.path.join(output_dir, 'images', 'val', f"{filename}.jpg"))  # 或者使用jpg，取决于需求
+        img.save(os.path.join(image_dir, f"{filename}.jpg"))  # 保存为jpg格式
         
         # 保存标签
         with open(label_path, 'r') as label_file:
             label_data = label_file.read()
         
-        with open(os.path.join(output_dir, 'labels', 'val', f"{filename}.txt"), 'w') as out_label_file:
+        with open(os.path.join(label_dir, f"{filename}.txt"), 'w') as out_label_file:
             out_label_file.write(label_data)
         
         saved_count += 1  # 更新保存计数
 
     print(f"Saved {saved_count} images and labels to {output_dir}")
+

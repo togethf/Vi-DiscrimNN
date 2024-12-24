@@ -24,7 +24,7 @@ judge_config = {
         ]
     },
     'voc12': {
-        'threshold': 1-0.5, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
+        'threshold': 0.6, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
         'models': [
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'voc12', '11n.pt'),
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'voc12', '11m.pt'),

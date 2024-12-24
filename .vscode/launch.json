@@ -86,6 +86,62 @@
             ]
         },
         {
+            "name": "outlier-pestv3-partition-iter",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "outlier.py",
+            "cwd": "${workspaceFolder}",
+            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataset", "pestv3",
+                "--model_zoo", "pestv3",
+                "--iter", "True"
+            ]
+        },
+        {
+            "name": "outlier-voc07-partition-iter",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "outlier.py",
+            "cwd": "${workspaceFolder}",
+            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataset", "voc07",
+                "--model_zoo", "voc07",
+                "--iter", "True"
+            ]
+        },
+        {
+            "name": "outlier-voc12-partition-iter",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "outlier.py",
+            "cwd": "${workspaceFolder}",
+            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataset", "voc12",
+                "--model_zoo", "voc12",
+                "--iter", "True"
+            ]
+        },
+        {
+            "name": "outlier-pestv3-partition-judge",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "outlier.py",
+            "cwd": "${workspaceFolder}",
+            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataset", "pestv3",
+                "--model_zoo", "pestv3",
+                "--judge", "True"
+            ]
+        },  
+        {
             "name": "outlier-pestv3-partition",
             "type": "debugpy",
             "request": "launch",
@@ -220,6 +276,12 @@
                 "--validate", "True"
             ]
         },  
+    ],
+    "compounds": [
+        {
+            "name": "compounds: run ",
+            "configurations": [""]
+        }
     ]
     
 }
