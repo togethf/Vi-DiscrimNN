@@ -12,6 +12,7 @@ from tqdm import tqdm
 import numpy as np
 import time
 
+
 def xywh2xyxy(x):
     # Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
     y = torch.zeros_like(x) if isinstance(x, torch.Tensor) else np.zeros_like(x)
@@ -186,8 +187,8 @@ class ViDiscrimNN(nn.Module):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.router = self._prepare_router()
-        self.weak_det = YOLO(pestv3_config['weak_detector'])
-        self.strong_det = YOLO(pestv3_config['strong_detector'])
+        self.weak_det = YOLO(visdrone_config['weak_detector'])
+        self.strong_det = YOLO(visdrone_config['strong_detector'])
     
     def _prepare_router(self):
         router = shufflenet_v2_x0_5()
@@ -195,8 +196,17 @@ class ViDiscrimNN(nn.Module):
         router.load_state_dict(torch.load(classify_config['classifier']))
         router.eval()
         return router
+
     
-    def forward(self, X): 
+    def forward(self, X, mode): 
+        def _prepare_det(mode):
+            if mode == 'dynamic':
+                return self.weak_det, self.strong_det
+            elif mode == 'edge':
+                return self.weak_det, self.weak_det
+            else:
+                return self.strong_det, self.strong_det
+        det1, det2 = _prepare_det(mode)
         outputs = self.router(X)
         rst = outputs.argmax(dim=1)
         easys = []
@@ -209,29 +219,36 @@ class ViDiscrimNN(nn.Module):
             else:  # difficult
                 diffs.append(idx)
         if len(easys) > 0:
-            eouts = self.strong_det.predict(X[easys], verbose=False)
+            eouts = det1.predict(X[easys], verbose=False)
         if len(diffs) > 0:
-            douts = self.strong_det.predict(X[diffs], verbose=False)
+            douts = det2.predict(X[diffs], verbose=False)
 
         # 创建一个与输入大小相同的空列表
         outs = [None] * len(X)
-        
+        l = len(diffs)
+        weights = {
+            'dynamic': len(diffs),
+            'edge': 0,
+            'cloud': 1
+        }
+        offloading = weights[mode] * IMGSZ[0] * IMGSZ[1] * 3 
         # 将预测结果根据索引放回到对应位置
         for i, idx in enumerate(easys):
             outs[idx] = eouts[i]
         for i, idx in enumerate(diffs):
             outs[idx] = douts[i]
 
-        return outs
+        return outs, offloading
 
     #模型评估
-    def evaluation(self, val_dataloader, device):
+    def evaluation(self, val_dataloader, device, mode):
         labels = []
         sample_metrics = []  # List of tuples (TP, confs, pred)
         pbar = tqdm(val_dataloader)
         classes = []
         total_num = 0
         total_time = 0
+        total_offloading = 0
         for imgs, targets in pbar:
             # Extract classes
             if len(targets.shape) == 1:
@@ -245,14 +262,14 @@ class ViDiscrimNN(nn.Module):
             imgs = imgs.to(device)
             # ====================== time begin =====================
             begin = time.time()
-            output = self.forward(imgs)
+            output, offloading_num = self.forward(imgs, mode)
             end = time.time()
             total_num += imgs.shape[0]
             total_time += end - begin
             # ====================== time end =====================
             pbar.set_description("Evaluation model:") 
             sample_metrics += get_batch_statistics(output, labels, device)
-
+            total_offloading += offloading_num
         if len(sample_metrics) == 0:  # No detections over whole validation set.
             print("---- No detections over whole validation set ----")
             return None
@@ -261,18 +278,23 @@ class ViDiscrimNN(nn.Module):
         true_positives, pred_scores, pred_labels = [np.concatenate(x, 0) for x in list(zip(*sample_metrics))]
         metrics_output = ap_per_class(true_positives, pred_scores, pred_labels, classes)
         fps = total_num / total_time
-        print("fps: ", fps)  
-        return metrics_output  
+        return metrics_output, fps, total_offloading  
 
     
 if __name__ == "__main__":
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     model = ViDiscrimNN().to(device)
-    dataset = DetectionDataset(pestv3_config['source_images'], pestv3_config['source_labels'], 'val', open=True)
+    dataset = DetectionDataset(visdrone_config['source_images'], visdrone_config['source_labels'], 'val', open=True)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=DetectionDataset.collate_fn)
     # dataloader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=16, collate_fn=DetectionDataset.collate_fn)
+    for mode in ['edge', 'cloud', 'dynamic']:
+        performance, fps, uploading = model.evaluation(dataloader, device, mode)
+        print(f'----------------------execute {mode} mode:-----------------------')
+        print("Precision: ", performance[0])
+        print("Recall", performance[1])
+        print("mAP50", performance[2])
+        print("F1 Score: ", performance[3])
+        print("FPS: ", fps)
+        print("uploading ", uploading)
+        print(f'----------------------end evaluation:-----------------------')
 
-    print(model.evaluation(dataloader, device))
-    # for imgs, labels in dataloader:
-    #     imgs= imgs.to(device)
-    #     model.forward(imgs)
