@@ -2,12 +2,13 @@ import torch
 from ultralytics import YOLO
 from config import tag_config, pestv3_config
 from commons.dataset import ClassifyDataset
+from DisNet import DisNet
 from torch import nn
 from torch.utils.data import DataLoader, random_split, WeightedRandomSampler
 from sklearn.utils.class_weight import compute_class_weight
 from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from sklearn.model_selection import KFold
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from torchvision import transforms
@@ -21,61 +22,10 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR                                                                      
 from sklearn.metrics import classification_report, confusion_matrix
 
-class DiscrimNN(torch.nn.Module):
-    def __init__(self, yolo):
-        super(DiscrimNN, self).__init__()
-        self.backbone = yolo.model.model[:8]  # 提取YOLO的前8层作为骨干网络
-        
-        # 分类头
-        self.conv1 = torch.nn.Conv2d(256, 128, kernel_size=3, padding=1)
-        self.bn1 = torch.nn.BatchNorm2d(128)
-        self.conv2 = torch.nn.Conv2d(128, 64, kernel_size=3, padding=1)
-        self.bn2 = torch.nn.BatchNorm2d(64)
-        self.conv3 = torch.nn.Conv2d(64, 20, kernel_size=1)  # 1x1 卷积层，输出通道数为类别数
-        self.activation = torch.nn.ReLU()
-        self.dropout = torch.nn.Dropout2d(0.5)
-
-        # self.linear1 = torch.nn.Linear(256, 128)
-        # self.activation = torch.nn.ReLU()
-        # self.dropout = torch.nn.Dropout(0.5)
-        # self.linear2 = torch.nn.Linear(128, 64)
-        # self.linear3 = torch.nn.Linear(64, 20)
-
-    def forward(self, x):
-        x = self.backbone(x)
-        
-        # 分类头
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.activation(x)
-        x = self.dropout(x)
-        
-        x = self.conv2(x)
-        x = self.bn2(x)
-        x = self.activation(x)
-        # x = self.dropout(x)
-        
-        x = self.conv3(x)
-        
-        # 全局平均池化
-        x = torch.nn.functional.adaptive_avg_pool2d(x, (1, 1))
-        x = x.view(x.size(0), -1)  # 展平以适应全连接层
-
-        # x = self.linear1(x)
-        # x = self.activation(x)
-        # # x = self.dropout(x)
-        # x = self.linear2(x)
-        # x = self.activation(x)
-        # x = self.linear3(x)
-        
-        return x
 
 def get_model(id, device):
     if id == 0:
-        yolo = YOLO(pestv3_config['strong_detector'])
-        # 冻结骨干网络参数
-        # freeze_layer(yolo, 11)
-        cls = DiscrimNN(yolo).to(device)
+        cls = DisNet().to(device)
     elif id == 1:
         cls = shufflenet_v2_x0_5(weights=ShuffleNet_V2_X0_5_Weights.DEFAULT)
         cls.fc = torch.nn.Linear(cls.fc.in_features, 2)
@@ -142,10 +92,13 @@ def main():
     train_transform = transforms.Compose([
         transforms.Resize((640, 640)),
         transforms.RandomHorizontalFlip(),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+        transforms.RandomVerticalFlip(p=0.3),  # 随机垂直翻转
+        transforms.RandomGrayscale(p=0.1),  # 随机灰度处理
+        # transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
         transforms.RandomRotation(15),
         transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
         transforms.ToTensor(),
+        # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),  # 标准化
     ])
 
     val_transform = transforms.Compose([
@@ -169,17 +122,18 @@ def main():
     class_weights = torch.tensor(class_weights, dtype=torch.float).to(device)
     sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
 
-    trainloader = DataLoader(train_dataset, batch_size=32, sampler=sampler, num_workers=16)
-    valloader = DataLoader(val_dataset, batch_size=32, shuffle=False, num_workers=8)
+    trainloader = DataLoader(train_dataset, batch_size=64, sampler=sampler, num_workers=16)
+    valloader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=16)
 
     # Loss function and optimizer
     criterion = CombinedLoss(weight=class_weights)
-    optimizer = AdamW(cls.parameters(), lr=0.002, weight_decay=1e-4)
+    optimizer = AdamW(cls.parameters(), lr=1e-3, weight_decay=1e-4)
     scheduler = CosineAnnealingLR(optimizer, T_max=10)
 
     writer = SummaryWriter(log_dir='./logs')
     num_epochs = 300
     best_val_f1 = 0
+    
 
     for epoch in range(num_epochs):
         cls.train()
