@@ -50,12 +50,11 @@ def save(images, labels, output_dir, clear_dir=False):
         output_dir (str): 要保存的位置
         clear_dir (bool): 是否清空目标目录，默认为 False
     """
-    # 如果清空目录
+    # 删除图像和标签文件夹及其内容
+    image_dir = os.path.join(output_dir, 'images', 'val')
+    label_dir = os.path.join(output_dir, 'labels', 'val')
+# 如果清空目录
     if clear_dir:
-        # 删除图像和标签文件夹及其内容
-        image_dir = os.path.join(output_dir, 'images', 'val')
-        label_dir = os.path.join(output_dir, 'labels', 'val')
-        
         if os.path.exists(image_dir):
             shutil.rmtree(image_dir)
         if os.path.exists(label_dir):
