@@ -5,8 +5,26 @@ cwd = os.getcwd()
 IMGSZ = (640, 640)
 
 judge_config = {
+    'pestv1': {
+        'threshold': 0.4, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
+        'models': [
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv1', '11n.pt'),
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv1', '11m.pt'),
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv1', '11l.pt'),
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv1', '11x.pt'),
+        ]
+    },
+    'visdrone': {
+        'threshold': 0.4, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
+        'models': [
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'visdrone', '11n.pt'),
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'visdrone', '11m.pt'),
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'visdrone', '11l.pt'),
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'visdrone', '11x.pt'),
+        ]
+    },
     'pestv3': {
-        'threshold': 1-0.5, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
+        'threshold': 0.7, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
         'models': [
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv3', '11n.pt'),
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv3', '11m.pt'),
@@ -15,7 +33,7 @@ judge_config = {
         ]
     },
     'voc07': {
-        'threshold': 2-0.5, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
+        'threshold': 0.8, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
         'models': [
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'voc07', '11n.pt'),
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'voc07', '11m.pt'),
@@ -33,7 +51,7 @@ judge_config = {
         ]
     },
     'coco': {
-        'threshold': 2-0.5,
+        'threshold': 0.5,
         'models': [
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'coco', '11n.pt'),
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'coco', '11m.pt'),
@@ -42,6 +60,25 @@ judge_config = {
         ]
     }
 }
+
+pestv1_config = {
+    'weak_detector': os.path.join(cwd, 'checkpoint', 'weak_det', 'pestv1', '11n.pt'),
+    'strong_detector': os.path.join(cwd, 'checkpoint', 'strong_det', 'pestv1', '11x.pt'),
+    # means where stores train/val/test
+    'source_images': r'/home/insslab/Desktop/datasets/RicePestsV1/VOCdevkit/images/',
+    'source_labels': r'/home/insslab/Desktop/datasets/RicePestsV1/VOCdevkit/labels/',
+    'cfg': os.path.join(cwd, 'cfg', 'datasets', 'pest', 'v1.yaml'),
+}
+
+visdrone_config = {
+    'weak_detector': os.path.join(cwd, 'checkpoint', 'weak_det', 'visdrone', '11n.pt'),
+    'strong_detector': os.path.join(cwd, 'checkpoint', 'strong_det', 'visdrone', '11x.pt'),
+    # means where stores train/val/test
+    'source_images': r'/home/insslab/Desktop/datasets/visdrone/images/',
+    'source_labels': r'/home/insslab/Desktop/datasets/visdrone/labels/',
+    'cfg': os.path.join(cwd, 'cfg', 'datasets', 'visdrone', 'visdrone.yaml'),
+}
+
 coco_config = {
     'weak_detector': os.path.join(cwd, 'checkpoint', 'weak_det', 'coco', '11n.pt'),
     'strong_detector': os.path.join(cwd, 'checkpoint', 'strong_det', 'coco', '11x.pt'),

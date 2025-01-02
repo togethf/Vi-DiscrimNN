@@ -19,6 +19,62 @@
             ]
         },
         {
+            "name": "outlier-coco-partition-keep",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "outlier.py",
+            "cwd": "${workspaceFolder}",
+            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataset", "coco",
+                "--model_zoo", "coco",
+                "--keep_dir"
+            ]
+        },
+        {
+            "name": "outlier-visdrone-partition-keep",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "outlier.py",
+            "cwd": "${workspaceFolder}",
+            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataset", "visdrone",
+                "--model_zoo", "visdrone",
+                "--keep_dir"
+            ]
+        },
+        {
+            "name": "outlier-pestv1-partition-iter",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "outlier.py",
+            "cwd": "${workspaceFolder}",
+            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataset", "pestv1",
+                "--model_zoo", "pestv1",
+                "--iter", "True"
+            ]
+        },
+        {
+            "name": "outlier-visdrone-partition-iter",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "outlier.py",
+            "cwd": "${workspaceFolder}",
+            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataset", "visdrone",
+                "--model_zoo", "visdrone",
+                "--iter", "True"
+            ]
+        },
+        {
             "name": "outlier-coco-partition",
             "type": "debugpy",
             "request": "launch",
@@ -46,6 +102,20 @@
             ]
         },
         {
+            "name": "outlier-voc12-partition-keep",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "outlier.py",
+            "cwd": "${workspaceFolder}",
+            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataset", "voc12",
+                "--model_zoo", "voc12",
+                "--keep_dir"
+            ]
+        },
+        {
             "name": "outlier-voc12-partition",
             "type": "debugpy",
             "request": "launch",
@@ -70,6 +140,20 @@
                 "--dataset", "voc07",
                 "--model_zoo", "voc07",
                 "--validate", "True"
+            ]
+        },
+        {
+            "name": "outlier-voc07-partition-keep",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "outlier.py",
+            "cwd": "${workspaceFolder}",
+            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataset", "voc07",
+                "--model_zoo", "voc07",
+                "--keep_dir"
             ]
         },
         {
@@ -139,6 +223,20 @@
                 "--dataset", "pestv3",
                 "--model_zoo", "pestv3",
                 "--judge", "True"
+            ]
+        }, 
+        {
+            "name": "outlier-pestv3-partition-keep",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "outlier.py",
+            "cwd": "${workspaceFolder}",
+            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataset", "pestv3",
+                "--model_zoo", "pestv3",
+                "--keep_dir"
             ]
         },  
         {

@@ -24,7 +24,9 @@ def parse(opt):
         'voc12': voc12_config,
         'voc07': voc07_config,
         'pestv3': pestv3_config,
-        'coco': coco_config
+        'coco': coco_config,
+        'visdrone': visdrone_config,
+        'pestv1': pestv1_config
     }
 
     # 根据 opt.dataset 获取对应的数据配置
@@ -38,7 +40,9 @@ def parse(opt):
         'voc12': judge_config['voc12'],
         'voc07': judge_config['voc07'],
         'pestv3': judge_config['pestv3'],
-        'coco': judge_config['coco']
+        'coco': judge_config['coco'],
+        'visdrone': judge_config['visdrone'],
+        'pestv1': judge_config['pestv1']
     }
 
     # 根据 opt.model 获取对应的模型配置
@@ -261,11 +265,12 @@ def save_map_curves(e_map, d_map, e_map_x, d_map_x, save_path):
 
 def main():
     parser = argparse.ArgumentParser(description='find outlier based method to tag the difficulty of imgs')
-    parser.add_argument('--dataset', type=str, default='voc12', help='选择划分哪个数据集：voc12/voc07/coco/pestv3')
-    parser.add_argument('--model_zoo', type=str, default='voc12', help='选择用哪套模型来划分数据:voc12/voc07/coco/pestv3')
+    parser.add_argument('--dataset', type=str, default='pestv1', help='选择划分哪个数据集：voc12/voc07/coco/pestv3/visdrone/pestv1')
+    parser.add_argument('--model_zoo', type=str, default='pestv1', help='选择用哪套模型来划分数据:voc12/voc07/coco/pestv3/visdrone/pestv1')
     parser.add_argument('--validate', type=str, default=None, help='会决定是划分数据集还是验证')
     parser.add_argument('--judge', type=str, default=None,help='是否启用judge')
-    parser.add_argument('--iter', type=str, default=None, help='是否通过遍历找到最佳的划分点，保存图像')
+    parser.add_argument('--iter', type=str, default="True", help='是否通过遍历找到最佳的划分点，保存图像')
+    parser.add_argument('--keep_dir', action="store_false", help="是否清除原先的目录，不输入时为True")
     opt = parser.parse_args()
     dconfig, mconfig = parse(opt)  
     img_dir = dconfig['source_images'] + 'val'
@@ -342,8 +347,8 @@ def main():
             for i, l, _ in trace[num_easy:]:
                 diff.append(i)
                 ldiff.append(l)
-            save(easy, leasy, tag_config['output_easy_dir'], clear_dir=True)
-            save(diff, ldiff, tag_config['output_diff_dir'], clear_dir=True)
+            save(easy, leasy, tag_config['output_easy_dir'], clear_dir=opt.keep_dir)
+            save(diff, ldiff, tag_config['output_diff_dir'], clear_dir=opt.keep_dir)
         
 
 if __name__ == '__main__':
