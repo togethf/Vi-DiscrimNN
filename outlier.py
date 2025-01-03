@@ -26,7 +26,8 @@ def parse(opt):
         'pestv3': pestv3_config,
         'coco': coco_config,
         'visdrone': visdrone_config,
-        'pestv1': pestv1_config
+        'pestv1': pestv1_config,
+        'ip102': ip102_config
     }
 
     # 根据 opt.dataset 获取对应的数据配置
@@ -42,7 +43,8 @@ def parse(opt):
         'pestv3': judge_config['pestv3'],
         'coco': judge_config['coco'],
         'visdrone': judge_config['visdrone'],
-        'pestv1': judge_config['pestv1']
+        'pestv1': judge_config['pestv1'],
+        'ip102': judge_config['ip102']
     }
 
     # 根据 opt.model 获取对应的模型配置
@@ -265,8 +267,8 @@ def save_map_curves(e_map, d_map, e_map_x, d_map_x, save_path):
 
 def main():
     parser = argparse.ArgumentParser(description='find outlier based method to tag the difficulty of imgs')
-    parser.add_argument('--dataset', type=str, default='pestv1', help='选择划分哪个数据集：voc12/voc07/coco/pestv3/visdrone/pestv1')
-    parser.add_argument('--model_zoo', type=str, default='pestv1', help='选择用哪套模型来划分数据:voc12/voc07/coco/pestv3/visdrone/pestv1')
+    parser.add_argument('--dataset', type=str, default='pestv1', help='选择划分哪个数据集：voc12/voc07/coco/pestv3/visdrone/pestv1/ip102')
+    parser.add_argument('--model_zoo', type=str, default='pestv1', help='选择用哪套模型来划分数据:voc12/voc07/coco/pestv3/visdrone/pestv1/ip102')
     parser.add_argument('--validate', type=str, default=None, help='会决定是划分数据集还是验证')
     parser.add_argument('--judge', type=str, default=None,help='是否启用judge')
     parser.add_argument('--iter', type=str, default="True", help='是否通过遍历找到最佳的划分点，保存图像')

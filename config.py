@@ -5,6 +5,15 @@ cwd = os.getcwd()
 IMGSZ = (640, 640)
 
 judge_config = {
+    'ip102': {
+        'threshold': 0.4, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
+        'models': [
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'ip102', '11n.pt'),
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'ip102', '11m.pt'),
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'ip102', '11l.pt'),
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'ip102', '11x.pt'),
+        ]
+    },
     'pestv1': {
         'threshold': 0.4, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
         'models': [
@@ -68,6 +77,15 @@ pestv1_config = {
     'source_images': r'/home/insslab/Desktop/datasets/RicePestsV1/VOCdevkit/images/',
     'source_labels': r'/home/insslab/Desktop/datasets/RicePestsV1/VOCdevkit/labels/',
     'cfg': os.path.join(cwd, 'cfg', 'datasets', 'pest', 'v1.yaml'),
+}
+
+ip102_config = {
+    'weak_detector': os.path.join(cwd, 'checkpoint', 'weak_det', 'ip102', '11n.pt'),
+    'strong_detector': os.path.join(cwd, 'checkpoint', 'strong_det', 'ip102', '11x.pt'),
+    # means where stores train/val/test
+    'source_images': r'/home/insslab/Desktop/datasets/ip102/IP102_YOLOv5/images/',
+    'source_labels': r'/home/insslab/Desktop/datasets/ip102/IP102_YOLOv5/labels/',
+    'cfg': os.path.join(cwd, 'cfg', 'datasets', 'ip102', 'ip102.yaml'),
 }
 
 visdrone_config = {
