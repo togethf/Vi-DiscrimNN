@@ -5,6 +5,15 @@ cwd = os.getcwd()
 IMGSZ = (640, 640)
 
 judge_config = {
+    'pest24': {
+        'threshold': 0.4, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
+        'models': [
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'pest24', '11n.pt'),
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'pest24', '11m.pt'),
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'pest24', '11l.pt'),
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'pest24', '11x.pt'),
+        ]
+    },
     'ip102': {
         'threshold': 0.4, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
         'models': [
@@ -77,6 +86,15 @@ pestv1_config = {
     'source_images': r'/home/insslab/Desktop/datasets/RicePestsV1/VOCdevkit/images/',
     'source_labels': r'/home/insslab/Desktop/datasets/RicePestsV1/VOCdevkit/labels/',
     'cfg': os.path.join(cwd, 'cfg', 'datasets', 'pest', 'v1.yaml'),
+}
+
+pest24_config = {
+    'weak_detector': os.path.join(cwd, 'checkpoint', 'weak_det', 'pest24', '11n.pt'),
+    'strong_detector': os.path.join(cwd, 'checkpoint', 'strong_det', 'pest24', '11x.pt'),
+    # means where stores train/val/test
+    'source_images': r'/home/insslab/Desktop/datasets/pest24/Pest24/VOCdevkit/voc2007/split/images/',
+    'source_labels': r'/home/insslab/Desktop/datasets/pest24/Pest24/VOCdevkit/voc2007/split/labels/',
+    'cfg': os.path.join(cwd, 'cfg', 'datasets', 'pest', 'pest24.yaml'),
 }
 
 ip102_config = {
