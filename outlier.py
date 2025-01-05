@@ -247,10 +247,10 @@ def save_map_curves(e_map, d_map, e_map_x, d_map_x, save_path):
     
     # 绘制简单图片的 mAP 曲线
     plt.plot(ratios_easy, map_easy, label='Easy - weak', marker='o')
-    plt.plot(ratios_easy_x, map_easy_x, label='Easy - strong', marker='o', linestyle='--')
+    plt.plot(ratios_easy_x, map_easy_x, label='Easy - strong', marker='x', linestyle='--')
     
     # 绘制困难图片的 mAP 曲线
-    plt.plot(ratios_diff, map_diff, label='Difficult - easy', marker='x')
+    plt.plot(ratios_diff, map_diff, label='Difficult - weak', marker='o')
     plt.plot(ratios_diff_x, map_diff_x, label='Difficult - strong', marker='x', linestyle='--')
     
     # 添加标题和标签
@@ -317,7 +317,7 @@ def main():
             e_map_x = []
             d_map_x = []
             # 通过遍历，找到适合的比例。
-            for n in np.arange(0, 10, 0.5) :
+            for n in np.arange(1, 10, 0.5) :
                 diff = []
                 ldiff = []
                 easy = []
