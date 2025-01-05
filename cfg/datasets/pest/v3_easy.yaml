@@ -1,4 +1,4 @@
-path: /home/insslab/Desktop/Vi-DiscrimNN/out/easy/images # dataset root dir
+path: /home/insslab/Desktop/Vi-DiscrimNN/out/pestv3/easy/images # dataset root dir
 train: val
 val: val
 

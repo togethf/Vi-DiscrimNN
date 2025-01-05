@@ -1,0 +1,31 @@
+path: /home/insslab/Desktop/Vi-DiscrimNN/out/pest24/easy/images # dataset root dir
+train: val
+val: val
+
+
+# Classes
+names:
+  0: Rice planthopper
+  1: Rice Leaf Roller
+  2: Chilo suppressalis
+  3: Armyworm
+  4: Bollworm
+  5: Meadow borer
+  6: Athetis lepigone
+  7: Spodoptera litura
+  8: Spodoptera exigua
+  9: Stem borer
+  10: Little Gecko
+  11: Plutella xylostella
+  12: Spodoptera cabbage
+  13: Scotogramma trifolii Rottenberg
+  14: Yellow tiger
+  15: Land tiger
+  16: Eight-character tiger
+  17: Holotrichia oblita
+  18: Holotrichia parallela
+  19: Anomala corpulenta
+  20: Gryllotalpa orientalis
+  21: Nematode trench
+  22: Agriotes fuscicollis Miwa
+  23: Melahotus

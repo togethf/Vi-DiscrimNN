@@ -1,5 +1,5 @@
 
-path: /home/insslab/Desktop/Vi-DiscrimNN/out/easy/images # dataset root dir
+path: /home/insslab/Desktop/Vi-DiscrimNN/out/coco/easy/images # dataset root dir
 train: val
 val: val
 # Classes

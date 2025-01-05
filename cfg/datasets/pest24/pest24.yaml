@@ -1,0 +1,44 @@
+# Ultralytics YOLO 🚀, AGPL-3.0 license
+# PASCAL VOC dataset http://host.robots.ox.ac.uk/pascal/VOC by University of Oxford
+# Documentation: # Documentation: https://docs.ultralytics.com/datasets/detect/voc/
+# Example usage: yolo train data=VOC.yaml
+# parent
+# ├── ultralytics
+# └── datasets
+#     └── VOC  ← downloads here (2.8 GB)
+
+# Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
+path: /home/insslab/Desktop/datasets/pest24/Pest24/VOCdevkit/voc2007/yolo_path
+train: # train images (relative to 'path')  16551 images
+  - train.txt
+val: # val images (relative to 'path')  4952 images
+  - val.txt
+test: # test images (optional)
+  - test.txt
+
+# Classes
+names:
+  0: Rice planthopper
+  1: Rice Leaf Roller
+  2: Chilo suppressalis
+  3: Armyworm
+  4: Bollworm
+  5: Meadow borer
+  6: Athetis lepigone
+  7: Spodoptera litura
+  8: Spodoptera exigua
+  9: Stem borer
+  10: Little Gecko
+  11: Plutella xylostella
+  12: Spodoptera cabbage
+  13: Scotogramma trifolii Rottenberg
+  14: Yellow tiger
+  15: Land tiger
+  16: Eight-character tiger
+  17: Holotrichia oblita
+  18: Holotrichia parallela
+  19: Anomala corpulenta
+  20: Gryllotalpa orientalis
+  21: Nematode trench
+  22: Agriotes fuscicollis Miwa
+  23: Melahotus

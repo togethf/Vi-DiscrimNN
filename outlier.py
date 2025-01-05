@@ -330,8 +330,8 @@ def main():
                     diff.append(i)
                     ldiff.append(l)
 
-                save(easy, leasy, tag_config['output_easy_dir'], clear_dir=True)
-                save(diff, ldiff, tag_config['output_diff_dir'], clear_dir=True)
+                save(easy, leasy, dconfig['output_easy_dir'], clear_dir=True)
+                save(diff, ldiff, dconfig['output_diff_dir'], clear_dir=True)
                 for idx, model in enumerate(model_list):
                     print("validate name: ", model.model_name)
                     eap, dap = validate(model, dconfig)
@@ -351,8 +351,8 @@ def main():
             for i, l, _ in trace[num_easy:]:
                 diff.append(i)
                 ldiff.append(l)
-            save(easy, leasy, tag_config['output_easy_dir'], clear_dir=opt.keep_dir)
-            save(diff, ldiff, tag_config['output_diff_dir'], clear_dir=opt.keep_dir)
+            save(easy, leasy, dconfig['output_easy_dir'], clear_dir=opt.keep_dir)
+            save(diff, ldiff, dconfig['output_diff_dir'], clear_dir=opt.keep_dir)
         
 
 if __name__ == '__main__':
