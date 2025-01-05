@@ -27,7 +27,8 @@ def parse(opt):
         'coco': coco_config,
         'visdrone': visdrone_config,
         'pestv1': pestv1_config,
-        'ip102': ip102_config
+        'ip102': ip102_config,
+        'pest24': pest24_config
     }
 
     # 根据 opt.dataset 获取对应的数据配置
@@ -44,7 +45,8 @@ def parse(opt):
         'coco': judge_config['coco'],
         'visdrone': judge_config['visdrone'],
         'pestv1': judge_config['pestv1'],
-        'ip102': judge_config['ip102']
+        'ip102': judge_config['ip102'],
+        'pest24': judge_config['pest24']
     }
 
     # 根据 opt.model 获取对应的模型配置
@@ -244,16 +246,16 @@ def save_map_curves(e_map, d_map, e_map_x, d_map_x, save_path):
     plt.figure(figsize=(10, 6))
     
     # 绘制简单图片的 mAP 曲线
-    plt.plot(ratios_easy, map_easy, label='Easy - Model 0', marker='o')
-    plt.plot(ratios_easy_x, map_easy_x, label='Easy - Model 3', marker='o', linestyle='--')
+    plt.plot(ratios_easy, map_easy, label='Easy - weak', marker='o')
+    plt.plot(ratios_easy_x, map_easy_x, label='Easy - strong', marker='o', linestyle='--')
     
     # 绘制困难图片的 mAP 曲线
-    plt.plot(ratios_diff, map_diff, label='Difficult - Model 0', marker='x')
-    plt.plot(ratios_diff_x, map_diff_x, label='Difficult - Model 3', marker='x', linestyle='--')
+    plt.plot(ratios_diff, map_diff, label='Difficult - easy', marker='x')
+    plt.plot(ratios_diff_x, map_diff_x, label='Difficult - strong', marker='x', linestyle='--')
     
     # 添加标题和标签
-    plt.title("mAP Curves for Easy and Difficult Images")
-    plt.xlabel("Ratio of Total Images")
+    plt.title("mAP Curves for different ratio of easy samples")
+    plt.xlabel("Ratio of easy Images")
     plt.ylabel("mAP")
     plt.legend()
     plt.grid(True)
@@ -267,8 +269,8 @@ def save_map_curves(e_map, d_map, e_map_x, d_map_x, save_path):
 
 def main():
     parser = argparse.ArgumentParser(description='find outlier based method to tag the difficulty of imgs')
-    parser.add_argument('--dataset', type=str, default='pestv1', help='选择划分哪个数据集：voc12/voc07/coco/pestv3/visdrone/pestv1/ip102')
-    parser.add_argument('--model_zoo', type=str, default='pestv1', help='选择用哪套模型来划分数据:voc12/voc07/coco/pestv3/visdrone/pestv1/ip102')
+    parser.add_argument('--dataset', type=str, default='pestv1', help='选择划分哪个数据集：voc12/voc07/coco/pestv3/visdrone/pestv1/ip102/pest24')
+    parser.add_argument('--model_zoo', type=str, default='pestv1', help='选择用哪套模型来划分数据:voc12/voc07/coco/pestv3/visdrone/pestv1/ip102/pest24')
     parser.add_argument('--validate', type=str, default=None, help='会决定是划分数据集还是验证')
     parser.add_argument('--judge', type=str, default=None,help='是否启用judge')
     parser.add_argument('--iter', type=str, default="True", help='是否通过遍历找到最佳的划分点，保存图像')
@@ -315,7 +317,7 @@ def main():
             e_map_x = []
             d_map_x = []
             # 通过遍历，找到适合的比例。
-            for n in np.arange(4, 10, 0.5) :
+            for n in np.arange(0, 10, 0.5) :
                 diff = []
                 ldiff = []
                 easy = []
