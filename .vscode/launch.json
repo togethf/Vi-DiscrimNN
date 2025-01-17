@@ -47,6 +47,34 @@
             ]
         },
         {
+            "name": "outlier-ip102-partition-iter",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "outlier.py",
+            "cwd": "${workspaceFolder}",
+            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataset", "ip102",
+                "--model_zoo", "ip102",
+                "--iter", "True"
+            ]
+        },
+        {
+            "name": "outlier-pest24-partition-iter",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "outlier.py",
+            "cwd": "${workspaceFolder}",
+            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataset", "pest24",
+                "--model_zoo", "pest24",
+                "--iter", "True"
+            ]
+        },
+        {
             "name": "outlier-pestv1-partition-iter",
             "type": "debugpy",
             "request": "launch",
@@ -71,6 +99,20 @@
             "args": [
                 "--dataset", "visdrone",
                 "--model_zoo", "visdrone",
+                "--iter", "True"
+            ]
+        },
+        {
+            "name": "outlier-coco-partition-iter",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "outlier.py",
+            "cwd": "${workspaceFolder}",
+            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataset", "coco",
+                "--model_zoo", "coco",
                 "--iter", "True"
             ]
         },
@@ -378,7 +420,8 @@
     "compounds": [
         {
             "name": "compounds: run ",
-            "configurations": [""]
+            "configurations": ["outlier-voc12-partition-iter", "outlier-voc07-partition-iter", "outlier-ip102-partition-iter",
+                               "outlier-visdrone-partition-iter", "outlier-coco-partition-iter"]
         }
     ]
     
