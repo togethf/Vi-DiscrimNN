@@ -287,7 +287,17 @@ if __name__ == "__main__":
     dataset = DetectionDataset(visdrone_config['source_images'], visdrone_config['source_labels'], 'val', open=True)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=DetectionDataset.collate_fn)
     # dataloader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=16, collate_fn=DetectionDataset.collate_fn)
-    for mode in ['edge', 'cloud', 'dynamic']:
+    modes = ['edge', 'cloud', 'dynamic']
+    metrics = {
+        'Precision': [],
+        'Recall': [],
+        'mAP50': [],
+        'F1 Score': [],
+        'FPS': [],
+        'Uploading': []
+    }
+
+    for mode in modes:
         performance, fps, uploading = model.evaluation(dataloader, device, mode)
         print(f'----------------------execute {mode} mode:-----------------------')
         print("Precision: ", performance[0])
@@ -295,6 +305,29 @@ if __name__ == "__main__":
         print("mAP50", performance[2])
         print("F1 Score: ", performance[3])
         print("FPS: ", fps)
-        print("uploading ", uploading)
+        print("Uploading ", uploading)
         print(f'----------------------end evaluation:-----------------------')
+
+        metrics['Precision'].append(performance[0])
+        metrics['Recall'].append(performance[1])
+        metrics['mAP50'].append(performance[2])
+        metrics['F1 Score'].append(performance[3])
+        metrics['FPS'].append(fps)
+        metrics['Uploading'].append(uploading)
+
+    # 绘制图表
+    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+    fig.suptitle('Model Performance in Different Modes', fontsize=16)
+
+    for ax, (metric, values) in zip(axes.flatten(), metrics.items()):
+        ax.bar(modes, values, color=['skyblue', 'orange', 'green'])
+        ax.set_title(metric)
+        ax.set_ylabel(metric)
+        ax.set_xlabel('Mode')
+        ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    output_path = "figure/performance_metrics.png"
+    plt.savefig(output_path)
+    print(f"Performance metrics chart saved to {output_path}")
 
