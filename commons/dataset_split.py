@@ -3,7 +3,7 @@ import random
 from shutil import copy2
 
 # Define paths
-base_dir = 'out'
+base_dir = os.path.join('out', 'pestv3')
 diff_images_dir = os.path.join(base_dir, 'diff', 'images', 'val')
 diff_labels_dir = os.path.join(base_dir, 'diff', 'labels', 'val')
 easy_images_dir = os.path.join(base_dir, 'easy', 'images', 'val')

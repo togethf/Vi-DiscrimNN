@@ -187,8 +187,8 @@ class ViDiscrimNN(nn.Module):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.router = self._prepare_router()
-        self.weak_det = YOLO(visdrone_config['weak_detector'])
-        self.strong_det = YOLO(visdrone_config['strong_detector'])
+        self.weak_det = YOLO(pestv3_config['weak_detector'])
+        self.strong_det = YOLO(pestv3_config['strong_detector'])
     
     def _prepare_router(self):
         router = shufflenet_v2_x0_5()
@@ -284,7 +284,7 @@ class ViDiscrimNN(nn.Module):
 if __name__ == "__main__":
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     model = ViDiscrimNN().to(device)
-    dataset = DetectionDataset(visdrone_config['source_images'], visdrone_config['source_labels'], 'val', open=True)
+    dataset = DetectionDataset(pestv3_config['source_images'], pestv3_config['source_labels'], 'val', open=True)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=DetectionDataset.collate_fn)
     # dataloader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=16, collate_fn=DetectionDataset.collate_fn)
     modes = ['edge', 'cloud', 'dynamic']
