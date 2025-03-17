@@ -42,7 +42,7 @@ judge_config = {
         ]
     },
     'pestv3': {
-        'threshold': 0.7, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
+        'threshold': 0.75, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
         'models': [
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv3', '11n.pt'),
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv3', '11m.pt'),
