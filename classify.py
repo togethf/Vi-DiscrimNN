@@ -23,6 +23,9 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from sklearn.metrics import classification_report, confusion_matrix
 
 
+dataset = 'pestv3'
+img_dir = os.path.join('out', dataset, 'trainval')
+
 def get_model(id, device):
     if id == 0:
         cls = DisNet().to(device)
@@ -93,10 +96,10 @@ def main():
         transforms.Resize((640, 640)),
         transforms.RandomHorizontalFlip(),
         transforms.RandomVerticalFlip(p=0.3),  # 随机垂直翻转
-        transforms.RandomGrayscale(p=0.1),  # 随机灰度处理
+        # transforms.RandomGrayscale(p=0.1),  # 随机灰度处理
         # transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
         transforms.RandomRotation(15),
-        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
+        # transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
         transforms.ToTensor(),
         # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),  # 标准化
     ])
@@ -109,8 +112,8 @@ def main():
     cls = get_model(1, device)
 
     # Create datasets
-    train_dataset = ClassifyDataset(img_dir='out/trainval', transform=train_transform, train=True)
-    val_dataset = ClassifyDataset(img_dir='out/trainval', transform=val_transform, train=False)
+    train_dataset = ClassifyDataset(img_dir=img_dir, transform=train_transform, train=True)
+    val_dataset = ClassifyDataset(img_dir=img_dir, transform=val_transform, train=False)
 
     # Compute class weights and use WeightedRandomSampler
     easy_label = np.array(train_dataset.n_easy * [0])
@@ -127,7 +130,7 @@ def main():
 
     # Loss function and optimizer
     criterion = CombinedLoss(weight=class_weights)
-    optimizer = AdamW(cls.parameters(), lr=1e-3, weight_decay=1e-4)
+    optimizer = AdamW(cls.parameters(), lr=1e-4)
     scheduler = CosineAnnealingLR(optimizer, T_max=10)
 
     writer = SummaryWriter(log_dir='./logs')
