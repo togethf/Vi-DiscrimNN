@@ -267,6 +267,8 @@ def save_map_curves(e_map, d_map, e_map_x, d_map_x, save_path):
 
     print(f"图像已保存至: {save_path}")
 
+
+
 def main():
     parser = argparse.ArgumentParser(description='find outlier based method to tag the difficulty of imgs')
     parser.add_argument('--dataset', type=str, default='pestv3', help='选择划分哪个数据集：voc12/voc07/coco/pestv3/visdrone/pestv1/ip102/pest24')
@@ -333,15 +335,19 @@ def main():
 
                 save(easy, leasy, dconfig['output_easy_dir'], clear_dir=True)
                 save(diff, ldiff, dconfig['output_diff_dir'], clear_dir=True)
+                # 使用字典来存储不同 idx 对应的结果列表和处理逻辑
+                result_maps = {
+                    0: (e_map, d_map),
+                    2: (e_map_x, d_map_x)
+                }
+
                 for idx, model in enumerate(model_list):
-                    print("validate name: ", model.model_name)
-                    eap, dap = validate(model, dconfig)
-                    if idx == 0:
-                        e_map.append(( n/10, eap))
-                        d_map.append(( n/10, dap))
-                    elif idx == 2:
-                        e_map_x.append((n/10, eap))
-                        d_map_x.append((n/10, dap))
+                    if idx in result_maps:
+                        print("validate name: ", model.model_name)
+                        eap, dap = validate(model, dconfig)
+                        e_map_result, d_map_result = result_maps[idx]
+                        e_map_result.append((n/10, eap))
+                        d_map_result.append((n/10, dap))
             # 调用绘图函数
             save_map_curves(e_map, d_map, e_map_x, d_map_x, save_path=f'figure/ratio_iter_{opt.dataset}.png')
         else:

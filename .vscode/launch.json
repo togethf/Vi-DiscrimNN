@@ -61,6 +61,21 @@
             ]
         },
         {
+            "name": "outlier-pest24-partition-iter-train",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "outlier.py",
+            "cwd": "${workspaceFolder}",
+            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataset", "pest24",
+                "--model_zoo", "pest24",
+                "--iter", "True",
+                "--dataType", "train"
+            ]
+        },
+        {
             "name": "outlier-pest24-partition-iter",
             "type": "debugpy",
             "request": "launch",
