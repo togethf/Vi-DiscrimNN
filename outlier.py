@@ -275,9 +275,10 @@ def main():
     parser.add_argument('--judge', type=str, default=None,help='是否启用judge')
     parser.add_argument('--iter', type=str, default=None, help='是否通过遍历找到最佳的划分点，保存图像')
     parser.add_argument('--keep_dir', action="store_false", help="是否清除原先的目录，不输入时为True")
+    parser.add_argument('--dataType', type=str, default='val', help='选择验证集还是训练集')
     opt = parser.parse_args()
     dconfig, mconfig = parse(opt)  
-    img_dir = dconfig['source_images'] + 'val'
+    img_dir = dconfig['source_images'] + opt.dataType
     threshold, model_list = get_model(mconfig)
     if opt.validate:
         for model in model_list:
