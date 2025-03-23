@@ -178,5 +178,5 @@ tag_config = {
 }
 
 classify_config = {
-    'classifier': os.path.join(cwd, 'checkpoint', 'classifier', 'best_model.pth'),
+    'classifier': os.path.join(cwd, 'checkpoint', 'classifier', 'v3_shufflenet05.pth'),
 }

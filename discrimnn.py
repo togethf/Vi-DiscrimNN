@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import numpy as np
 import time
+import random
 
 
 def xywh2xyxy(x):
@@ -189,6 +190,7 @@ class ViDiscrimNN(nn.Module):
         self.router = self._prepare_router()
         self.weak_det = YOLO(pestv3_config['weak_detector'])
         self.strong_det = YOLO(pestv3_config['strong_detector'])
+        self.cloud_flag = False # random scheme中要用到
     
     def _prepare_router(self):
         router = shufflenet_v2_x0_5()
@@ -204,6 +206,20 @@ class ViDiscrimNN(nn.Module):
                 return self.weak_det, self.strong_det
             elif mode == 'edge':
                 return self.weak_det, self.weak_det
+            elif mode == 'random':
+                choice = random.randint(0, 1)
+                if choice == 1:
+                    det1 = self.weak_det
+                else:
+                    det1 = self.strong_det
+                    self.cloud_flag = True
+                choice = random.randint(0, 1)
+                if choice == 1:
+                    det2 = self.weak_det
+                else:
+                    det2 = self.strong_det
+                    self.cloud_flag = True
+                return det1, det2
             else:
                 return self.strong_det, self.strong_det
         det1, det2 = _prepare_det(mode)
@@ -229,7 +245,8 @@ class ViDiscrimNN(nn.Module):
         weights = {
             'dynamic': len(diffs),
             'edge': 0,
-            'cloud': 1
+            'cloud': 1,
+            'random': 1 if self.cloud_flag else 0
         }
         offloading = weights[mode] * IMGSZ[0] * IMGSZ[1] * 3 
         # 将预测结果根据索引放回到对应位置
@@ -237,7 +254,7 @@ class ViDiscrimNN(nn.Module):
             outs[idx] = eouts[i]
         for i, idx in enumerate(diffs):
             outs[idx] = douts[i]
-
+        self.cloud_flag = False
         return outs, offloading
 
     #模型评估
@@ -287,7 +304,7 @@ if __name__ == "__main__":
     dataset = DetectionDataset(pestv3_config['source_images'], pestv3_config['source_labels'], 'val', open=True)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=DetectionDataset.collate_fn)
     # dataloader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=16, collate_fn=DetectionDataset.collate_fn)
-    modes = ['edge', 'cloud', 'dynamic']
+    modes = ['edge', 'cloud', 'dynamic', 'random']
     metrics = {
         'Precision': [],
         'Recall': [],
@@ -319,11 +336,22 @@ if __name__ == "__main__":
     fig, axes = plt.subplots(2, 3, figsize=(15, 10))
     fig.suptitle('Model Performance in Different Modes', fontsize=16)
 
+    # 定义每个指标的纵坐标范围
+    ylim_dict = {
+        'Precision': (0.5, 1),      # Precision 范围 0 到 1
+        'Recall': (0.5, 1),         # Recall 范围 0 到 1
+        'mAP50': (0.5, 1),          # mAP50 范围 0 到 1
+        'F1 Score': (0.5, 1),       # F1 Score 范围 0 到 1
+        'FPS': (0, max(metrics['FPS']) + 10),  # FPS 范围 0 到最大值 + 10
+        'Uploading': (0, max(metrics['Uploading']) + 10)  # Uploading 范围 0 到最大值 + 10
+    }
+
     for ax, (metric, values) in zip(axes.flatten(), metrics.items()):
-        ax.bar(modes, values, color=['skyblue', 'orange', 'green'])
+        ax.bar(modes, values, color=['skyblue', 'orange', 'red', 'green'])
         ax.set_title(metric)
         ax.set_ylabel(metric)
         ax.set_xlabel('Mode')
+        ax.set_ylim(ylim_dict[metric])  # 设置纵坐标范围
         ax.grid(axis='y', linestyle='--', alpha=0.7)
 
     plt.tight_layout(rect=[0, 0, 1, 0.96])

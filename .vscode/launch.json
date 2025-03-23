@@ -212,6 +212,21 @@
             ]
         },
         {
+            "name": "outlier-pestv3-partition-iter-train",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "outlier.py",
+            "cwd": "${workspaceFolder}",
+            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataset", "pestv3",
+                "--model_zoo", "pestv3",
+                "--iter", "True",
+                "--dataType", "train"
+            ]
+        },
+        {
             "name": "outlier-pestv3-partition-iter",
             "type": "debugpy",
             "request": "launch",
