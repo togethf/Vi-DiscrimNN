@@ -93,3 +93,13 @@ def save(images, labels, output_dir, clear_dir=False):
 
     print(f"Saved {saved_count} images and labels to {output_dir}")
 
+def count(dir):
+    """返回dir目录下有多少文件
+
+    Args:
+        dir (dir_path): 想要统计的文件数量
+
+    Returns:
+        int: dir目录下的文件数量
+    """
+    return len(os.listdir(dir))
