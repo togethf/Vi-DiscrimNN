@@ -5,6 +5,14 @@ import torch
 import os
 import shutil
 from PIL import Image
+import numpy as np
+
+def resolve_npz(npz_file):
+    fs = np.load(npz_file)
+    result = []
+    for key in fs.files:
+        result.append((key, fs[key]))
+    return result
 
 def extract_label_full(file):
     """提取yolo的标签文件，返回[cls, x, y, w, h]
