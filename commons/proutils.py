@@ -1,4 +1,5 @@
 from config import *
+from ultralytics import YOLO
 
 def parse(opt):
     """解析命令行参数
