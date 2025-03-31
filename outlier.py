@@ -2,7 +2,6 @@ import numpy as np
 import os
 import argparse
 import os
-from ultralytics import YOLO
 from commons.utils import save, extract_label_full
 from config import IMGSZ
 from commons.det_utils import cal_iou
@@ -298,7 +297,7 @@ def main():
                         e_map_result.append((n/10, eap))
                         d_map_result.append((n/10, dap))
             # 保存迭代ap结果
-            np.savez(f'{opt.out}/data/{opt.dataType}_iter_map_{opt.dataset}.npz', e_map=e_map, d_map=d_map, e_map_x=e_map_x, d_map_x=d_map_x)
+            np.savez(f'{opt.out}/data/{opt.dataType}_iter_map_{opt.dataset}', e_map=e_map, d_map=d_map, e_map_x=e_map_x, d_map_x=d_map_x)
             # 调用绘图函数
             save_map_curves(e_map, d_map, e_map_x, d_map_x, save_path=f'{opt.out}/figure/{opt.dataType}_ratio_iter_{opt.dataset}.png')
         else:
