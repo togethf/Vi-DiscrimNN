@@ -4,70 +4,11 @@ import argparse
 import os
 from ultralytics import YOLO
 from commons.utils import save, extract_label_full
-from config import *
+from config import IMGSZ
 from commons.det_utils import cal_iou
 from tqdm import tqdm
-
+from commons.proutils import get_model, parse
 import matplotlib.pyplot as plt
-
-def parse(opt):
-    """解析命令行参数
-
-    Args:
-        opt (_type_): 命令行参数
-
-    Returns:
-        tuple: data_config, model_config - 划分使用的配置（voc 或 pest）
-    """
-    # 定义数据配置映射字典
-    data_config_map = {
-        'voc12': voc12_config,
-        'voc07': voc07_config,
-        'pestv3': pestv3_config,
-        'coco': coco_config,
-        'visdrone': visdrone_config,
-        'pestv1': pestv1_config,
-        'ip102': ip102_config,
-        'pest24': pest24_config
-    }
-
-    # 根据 opt.dataset 获取对应的数据配置
-    if opt.dataset in data_config_map:
-        data_config = data_config_map[opt.dataset]
-    else:
-        raise ValueError(f"Invalid dataset: {opt.dataset}. Available options are {', '.join(data_config_map.keys())}.")
-
-    # 定义模型配置映射字典
-    model_config_map = {
-        'voc12': judge_config['voc12'],
-        'voc07': judge_config['voc07'],
-        'pestv3': judge_config['pestv3'],
-        'coco': judge_config['coco'],
-        'visdrone': judge_config['visdrone'],
-        'pestv1': judge_config['pestv1'],
-        'ip102': judge_config['ip102'],
-        'pest24': judge_config['pest24']
-    }
-
-    # 根据 opt.model 获取对应的模型配置
-    if opt.model_zoo in model_config_map:
-        model_config = model_config_map[opt.model_zoo]
-    else:
-        raise ValueError(f"Invalid model: {opt.model}. Available options are {', '.join(model_config_map.keys())}.")
-
-    return data_config, model_config
-
-def get_model(mconfig):
-    """获取用于judge的模型
-
-    Args:
-        mconfig (dict): config.py['which']
-    """
-    model_list = []
-    for model in mconfig['models']:
-        model_list.append(YOLO(model))
-    threshold = mconfig['threshold']
-    return threshold, model_list
 
 # 格式化真实标签
 def format_gt(gt_labels, img_width, img_height):
@@ -234,13 +175,19 @@ def validate(model, dconfig):
     print("validate on diff done, map50: ", metrics_d.box.map50)
     return metrics_e.box.map50, metrics_d.box.map50
 
+def dynamic_mAP50(edge_score, cloud_score, ratio):
+    return edge_score * ratio + cloud_score * (1-ratio)
 
 def save_map_curves(e_map, d_map, e_map_x, d_map_x, save_path):
     # 解构数据
     ratios_easy, map_easy = zip(*e_map)
-    ratios_diff, map_diff = zip(*d_map)
+    ratios_easy, map_diff = zip(*d_map)
     ratios_easy_x, map_easy_x = zip(*e_map_x)
-    ratios_diff_x, map_diff_x = zip(*d_map_x)
+    ratios_easy_x, map_diff_x = zip(*d_map_x)
+
+    dynamic_ap = []
+    for ratio, ape, apd in zip(ratios_easy, map_easy, map_diff_x):
+        dynamic_ap.append(dynamic_mAP50(ape, apd, ratio))
     
     # 创建图形
     plt.figure(figsize=(10, 6))
@@ -250,8 +197,11 @@ def save_map_curves(e_map, d_map, e_map_x, d_map_x, save_path):
     plt.plot(ratios_easy_x, map_easy_x, label='Easy - strong', marker='x', linestyle='--')
     
     # 绘制困难图片的 mAP 曲线
-    plt.plot(ratios_diff, map_diff, label='Difficult - weak', marker='o')
-    plt.plot(ratios_diff_x, map_diff_x, label='Difficult - strong', marker='x', linestyle='--')
+    plt.plot(ratios_easy, map_diff, label='Difficult - weak', marker='o')
+    plt.plot(ratios_easy_x, map_diff_x, label='Difficult - strong', marker='x', linestyle='--')
+
+    # 绘制dynamic_map50
+    plt.plot(ratios_easy, dynamic_ap, label='Dynamic_mAP', marker='*')
     
     # 添加标题和标签
     plt.title("mAP Curves for different ratio of easy samples")
@@ -267,8 +217,6 @@ def save_map_curves(e_map, d_map, e_map_x, d_map_x, save_path):
 
     print(f"图像已保存至: {save_path}")
 
-
-
 def main():
     parser = argparse.ArgumentParser(description='find outlier based method to tag the difficulty of imgs')
     parser.add_argument('--dataset', type=str, default='pestv3', help='选择划分哪个数据集：voc12/voc07/coco/pestv3/visdrone/pestv1/ip102/pest24')
@@ -278,6 +226,7 @@ def main():
     parser.add_argument('--iter', type=str, default=None, help='是否通过遍历找到最佳的划分点，保存图像')
     parser.add_argument('--keep_dir', action="store_false", help="是否清除原先的目录，不输入时为True")
     parser.add_argument('--dataType', type=str, default='val', help='选择验证集还是训练集')
+    parser.add_argument('--out', type=str, default='exp', help='output dir')
     opt = parser.parse_args()
     dconfig, mconfig = parse(opt)  
     img_dir = dconfig['source_images'] + opt.dataType
@@ -348,8 +297,10 @@ def main():
                         e_map_result, d_map_result = result_maps[idx]
                         e_map_result.append((n/10, eap))
                         d_map_result.append((n/10, dap))
+            # 保存迭代ap结果
+            np.savez(f'{opt.out}/data/{opt.dataType}_iter_map_{opt.dataset}.npz', e_map=e_map, d_map=d_map, e_map_x=e_map_x, d_map_x=d_map_x)
             # 调用绘图函数
-            save_map_curves(e_map, d_map, e_map_x, d_map_x, save_path=f'figure/ratio_iter_{opt.dataset}.png')
+            save_map_curves(e_map, d_map, e_map_x, d_map_x, save_path=f'{opt.out}/figure/{opt.dataType}_ratio_iter_{opt.dataset}.png')
         else:
             num_easy = int(threshold * num_total)
             for i, l, _ in trace[:num_easy]:
