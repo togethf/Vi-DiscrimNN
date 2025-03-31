@@ -1,3 +1,4 @@
+import argparse
 import torch.nn as nn
 from torchvision.models import shufflenet_v2_x0_5
 from config import *
@@ -12,7 +13,7 @@ from tqdm import tqdm
 import numpy as np
 import time
 import random
-
+from commons.proutils import parse
 
 def xywh2xyxy(x):
     # Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
@@ -188,8 +189,8 @@ class ViDiscrimNN(nn.Module):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.router = self._prepare_router()
-        self.weak_det = YOLO(pestv3_config['weak_detector'])
-        self.strong_det = YOLO(pestv3_config['strong_detector'])
+        self.weak_det = YOLO(dconfig['weak_detector'])
+        self.strong_det = YOLO(dconfig['strong_detector'])
         self.cloud_flag = False # random scheme中要用到
     
     def _prepare_router(self):
@@ -299,9 +300,16 @@ class ViDiscrimNN(nn.Module):
 
     
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(help='discrimnn system design')
+    parser.add_argument('--dataset', type='str', default='pestv3',  help='选择划分哪个数据集：voc12/voc07/coco/pestv3/visdrone/pestv1/ip102/pest24')
+    parser.add_argument('--model_zoo', type=str, default='pestv3', help='选择用哪套模型来划分数据:voc12/voc07/coco/pestv3/visdrone/pestv1/ip102/pest24')
+    
+    opt = parser.parse_args()
+    dconfig, mconfig = parse(opt)
+
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     model = ViDiscrimNN().to(device)
-    dataset = DetectionDataset(pestv3_config['source_images'], pestv3_config['source_labels'], 'val', open=True)
+    dataset = DetectionDataset(dconfig['source_images'], dconfig['source_labels'], 'val', open=True)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=DetectionDataset.collate_fn)
     # dataloader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=16, collate_fn=DetectionDataset.collate_fn)
     modes = ['edge', 'cloud', 'dynamic', 'random']
