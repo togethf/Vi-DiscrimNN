@@ -24,7 +24,8 @@ from sklearn.metrics import classification_report, confusion_matrix
 
 
 dataset = 'pestv3'
-img_dir = os.path.join('out', dataset, 'trainval')
+ratio = 70
+img_dir = os.path.join('out', f'{dataset}', f'{ratio}', 'trainval')
 
 def get_model(id, device):
     if id == 0:
@@ -88,6 +89,41 @@ class CombinedLoss(nn.Module):
         loss_smooth = self.label_smoothing_loss(logits, labels).mean()
         return 0.4 * loss_ce + 0.4 * loss_focal + 0.2 * loss_smooth
 
+def evaluate_model_accuracy(model_path, dataset='pestv3', ratio=70):
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    
+    # 加载模型
+    model = get_model(1, device)  # 使用训练时的相同模型ID（1表示shufflenet_v2_x0_5）
+    model.load_state_dict(torch.load(model_path))
+    model.eval()
+    
+    # 准备验证集
+    val_transform = transforms.Compose([
+        transforms.Resize((640, 640)),
+        transforms.ToTensor(),
+    ])
+    val_dataset = ClassifyDataset(img_dir=os.path.join('out', dataset, str(ratio), 'trainval'), 
+                                transform=val_transform, train=False)
+    val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=16)
+    
+    # 计算分类精度
+    correct = 0
+    total = 0
+    
+    with torch.no_grad():
+        for images, labels in val_loader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            _, preds = torch.max(outputs, 1)  # 获取预测类别
+            
+            correct += (preds == labels).sum().item()  # 统计正确预测数
+            total += labels.size(0)  # 统计总样本数
+    
+    accuracy = correct / total  # 计算分类精度
+    print(f"Validation Accuracy: {accuracy:.4f} ({correct}/{total})")
+    return accuracy
+
+
 def main():
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
@@ -130,11 +166,11 @@ def main():
 
     # Loss function and optimizer
     criterion = CombinedLoss(weight=class_weights)
-    optimizer = AdamW(cls.parameters(), lr=1e-4)
-    scheduler = CosineAnnealingLR(optimizer, T_max=10)
+    optimizer = Adam(cls.parameters(), lr=1e-3, weight_decay=1e-4)
+    scheduler = CosineAnnealingLR(optimizer, T_max=100)
 
     writer = SummaryWriter(log_dir='./logs')
-    num_epochs = 300
+    num_epochs = 200
     best_val_f1 = 0
     
 
@@ -196,9 +232,13 @@ def main():
         if val_f1 > best_val_f1:
             best_val_f1 = val_f1
             os.makedirs('checkpoint/classifier', exist_ok=True)
-            torch.save(cls.state_dict(), os.path.join('checkpoint/classifier', 'best_model.pth'))
+            torch.save(cls.state_dict(), os.path.join('checkpoint/classifier', f'{dataset}', f'{ratio}', 'best_model.pth'))
 
     writer.close()
 
 if __name__ == '__main__':
-    main()
+    # main()
+    for r in [30, 40, 50, 60, 70]:
+        model_path = os.path.join('checkpoint/classifier', 'pestv3', f'{r}', 'best_model.pth')
+        val_accuracy = evaluate_model_accuracy(model_path)
+        print(f"ratio: {r}, acc: {val_accuracy}")
