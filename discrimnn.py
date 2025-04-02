@@ -12,8 +12,105 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import numpy as np
 import time
+from torchvision.models import shufflenet_v2_x0_5, ShuffleNet_V2_X0_5_Weights, shufflenet_v2_x1_0, ShuffleNet_V2_X1_0_Weights
 import random
 from commons.proutils import parse
+from commons.utils import resolve_npz
+    
+def max_edge(rs, clfs, idx):
+    rs, clfs = np.array(rs), np.array(clfs)
+    candidate_rs, candidate_clf = rs[idx], clfs[idx]
+    candidate_edge_x = candidate_rs * candidate_clf + (1 - candidate_rs) * (1 - candidate_clf)
+    max_indices = np.where(candidate_edge_x == np.max(candidate_edge_x))[0]
+    return max_indices[-1], candidate_rs[max_indices[-1]]
+
+def dynamic_ap(aps, clfs, r):
+    emap, dmap, emapx, dmapx = aps[0][1], aps[1][1], aps[2][1], aps[3][1]
+    candidate_n = len(emap)
+    # dynamic_ap列表
+    dynamic_aps = []
+    r_index = 0
+    r = [item/100 for item in r]
+    # 将 r 转换为集合以提高查询效率
+    r_set = set(r) if isinstance(r, list) else r
+    for i in range(candidate_n):
+        if emap[i][0] not in r_set:
+            continue
+        pcls = clfs[r_index]
+        pwe, pwh, pse, psh = emap[i][1], dmap[i][1], emapx[i][1], dmapx[i][1]
+        p_correct_e = r[r_index] * pcls * pwe
+        p_wrong_h = (1 - r[r_index]) * (1 - pcls) * pwh
+        p_correct_h = (1 - r[r_index]) * pcls * psh
+        p_wrong_e = r[r_index] * (1 - pcls) * pse
+        ptotal = p_correct_e + p_wrong_h + p_correct_h + p_wrong_e
+        dynamic_aps.append(ptotal)
+        r_index += 1
+    return dynamic_aps
+    
+class cls_scheme:
+    def __init__(self, dataset='pestv3', ratio=[30, 40, 50, 60, 70]):
+        self.data = dataset
+        self.rs = ratio
+    
+    def __get_model(self, id, device):
+        if id == 1:
+            cls = shufflenet_v2_x0_5(weights=ShuffleNet_V2_X0_5_Weights.DEFAULT)
+            cls.fc = torch.nn.Linear(cls.fc.in_features, 2)
+            cls.to(device)
+        else:
+            cls = shufflenet_v2_x1_0(weights=ShuffleNet_V2_X1_0_Weights.DEFAULT)
+            cls.fc = torch.nn.Linear(cls.fc.in_features, 2)
+            cls.to(device)
+        return cls
+
+    def items(self):
+        clfs = []
+        for r in self.rs:
+            model_path = os.path.join('checkpoint/classifier', self.data, f'{r}', 'best_model.pth')
+            clfs.append(model_path)
+        return clfs
+
+
+    def scores(self):
+        clfs = []
+        models = self.items()
+        for idx, model in enumerate(models):
+            val_accuracy = self.evaluate_model_accuracy(model, self.rs[idx])
+            clfs.append(val_accuracy)
+        return clfs
+
+    def evaluate_model_accuracy(self, model_path, ratio):
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        
+        # 加载模型
+        model = self.__get_model(1, device)  # 使用训练时的相同模型ID（1表示shufflenet_v2_x0_5）
+        model.load_state_dict(torch.load(model_path))
+        model.eval()
+        
+        # 准备验证集
+        val_transform = transforms.Compose([
+            transforms.Resize((640, 640)),
+            transforms.ToTensor(),
+        ])
+        val_dataset = ClassifyDataset(img_dir=os.path.join('out', self.data, str(ratio), 'trainval'), 
+                                    transform=val_transform, train=False)
+        val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=16)
+        
+        # 计算分类精度
+        correct = 0
+        total = 0
+        
+        with torch.no_grad():
+            for images, labels in val_loader:
+                images, labels = images.to(device), labels.to(device)
+                outputs = model(images)
+                _, preds = torch.max(outputs, 1)  # 获取预测类别
+                
+                correct += (preds == labels).sum().item()  # 统计正确预测数
+                total += labels.size(0)  # 统计总样本数
+        
+        accuracy = correct / total  # 计算分类精度
+        return accuracy
 
 def xywh2xyxy(x):
     # Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
@@ -186,17 +283,17 @@ def get_batch_statistics(outputs, targets, device, iou_threshold=0.5):
     return batch_metrics
 
 class ViDiscrimNN(nn.Module):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, weight, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.router = self._prepare_router()
+        self.router = self._prepare_router(weight)
         self.weak_det = YOLO(dconfig['weak_detector'])
         self.strong_det = YOLO(dconfig['strong_detector'])
         self.cloud_flag = False # random scheme中要用到
     
-    def _prepare_router(self):
+    def _prepare_router(self, weight):
         router = shufflenet_v2_x0_5()
         router.fc = torch.nn.Linear(router.fc.in_features, 2)
-        router.load_state_dict(torch.load(classify_config['classifier']))
+        router.load_state_dict(torch.load(weight))
         router.eval()
         return router
 
@@ -300,15 +397,34 @@ class ViDiscrimNN(nn.Module):
 
     
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(help='discrimnn system design')
-    parser.add_argument('--dataset', type='str', default='pestv3',  help='选择划分哪个数据集：voc12/voc07/coco/pestv3/visdrone/pestv1/ip102/pest24')
+    parser = argparse.ArgumentParser(description='discrimnn system design')
+    parser.add_argument('--dataset', type=str, default='pestv3',  help='选择划分哪个数据集：voc12/voc07/coco/pestv3/visdrone/pestv1/ip102/pest24')
     parser.add_argument('--model_zoo', type=str, default='pestv3', help='选择用哪套模型来划分数据:voc12/voc07/coco/pestv3/visdrone/pestv1/ip102/pest24')
-    
+    parser.add_argument('--expected_ap', type=int, default=0.94, help='用户希望系统能够达到的精度')
+    parser.add_argument('--iterdata', type=str, default='exp/data', help='保存outlier迭代输出文件的目录')
+    parser.add_argument('--dataType', type=str, default='val', help='iter文件的类型, train or val')
     opt = parser.parse_args()
     dconfig, mconfig = parse(opt)
 
+    # 获取划分比例
+    r = [30, 40, 50, 60, 70]
+
+    # 解析npz文件，用户获取ap的迭代曲线
+    npz_path = os.path.join(opt.iterdata, f'{opt.dataType}_iter_map_{opt.dataset}.npz')
+    iter_aps = resolve_npz(npz_path)
+
+    # 训练分类器，获得分类策略
+    scheme = cls_scheme(dataset=opt.dataset, ratio=r)
+    cs = scheme.scores()
+    c_models = scheme.items()
+    # 计算ratio
+    expected_ap = opt.expected_ap
+    dynamic_aps = np.array(dynamic_ap(iter_aps, cs, r))
+    # 找到dynamic_ap值大于用户值的下标
+    idx = np.where(dynamic_aps > expected_ap)[0]
+    loc, max_r = max_edge(r, cs, idx)
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = ViDiscrimNN().to(device)
+    model = ViDiscrimNN(c_models[loc]).to(device)
     dataset = DetectionDataset(dconfig['source_images'], dconfig['source_labels'], 'val', open=True)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=DetectionDataset.collate_fn)
     # dataloader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=16, collate_fn=DetectionDataset.collate_fn)
