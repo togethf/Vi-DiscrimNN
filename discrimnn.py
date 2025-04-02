@@ -287,7 +287,7 @@ def get_batch_statistics(outputs, targets, device, iou_threshold=0.5):
     return batch_metrics
 
 class ViDiscrimNN(nn.Module):
-    def __init__(self, weight, *args, **kwargs):
+    def __init__(self, weight, dconfig, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.router = self._prepare_router(weight)
         self.weak_det = YOLO(dconfig['weak_detector'])
@@ -428,7 +428,7 @@ if __name__ == "__main__":
     idx = np.where(dynamic_aps > expected_ap)[0]
     loc, max_r = max_edge(r, cs, idx)
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = ViDiscrimNN(c_models[loc]).to(device)
+    model = ViDiscrimNN(c_models[loc], dconfig).to(device)
     dataset = DetectionDataset(dconfig['source_images'], dconfig['source_labels'], 'val', open=True)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=DetectionDataset.collate_fn)
     # dataloader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=16, collate_fn=DetectionDataset.collate_fn)
