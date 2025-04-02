@@ -148,31 +148,35 @@ def bbox_iou(box1, box2):
     return iou
 
 
-def compute_ap(recall, precision):
-    """ Compute the average precision, given the recall and precision curves.
-    Code originally from https://github.com/rbgirshick/py-faster-rcnn.
+def compute_ap(recall, precision, method="continous"):
+    """
+    Compute the average precision, given the recall and precision curves.
+    Modified to support both continuous and interpolated (COCO-style) AP calculation.
 
-    # Arguments
+    Args:
         recall:    The recall curve (list).
         precision: The precision curve (list).
-    # Returns
-        The average precision as computed in py-faster-rcnn.
+        method:    "interp" (COCO 101-point interpolation) or "continuous" (Pascal VOC-style).
+    Returns:
+        The average precision.
     """
-    # correct AP calculation
-    # first append sentinel values at the end
+    # Append sentinel values to ensure the curves start at 0 and end at 1
     mrec = np.concatenate(([0.0], recall, [1.0]))
     mpre = np.concatenate(([0.0], precision, [0.0]))
 
-    # compute the precision envelope
+    # Compute the precision envelope (monotonically decreasing)
     for i in range(mpre.size - 1, 0, -1):
         mpre[i - 1] = np.maximum(mpre[i - 1], mpre[i])
 
-    # to calculate area under PR curve, look for points
-    # where X axis (recall) changes value
-    i = np.where(mrec[1:] != mrec[:-1])[0]
-
-    # and sum (\Delta recall) * prec
-    ap = np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])
+    # Choose calculation method
+    if method == "interp":
+        # 101-point interpolation (COCO)
+        x = np.linspace(0, 1, 101)  # 101 evenly spaced recall points
+        ap = np.trapz(np.interp(x, mrec, mpre), x)  # Integrate using trapezoidal rule
+    else:
+        # Continuous (Pascal VOC-style)
+        i = np.where(mrec[1:] != mrec[:-1])[0]  # Points where recall changes
+        ap = np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])  # Area under curve
     return ap
 
 def ap_per_class(tp, conf, pred_cls, target_cls):
