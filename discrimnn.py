@@ -148,7 +148,7 @@ def bbox_iou(box1, box2):
     return iou
 
 
-def compute_ap(recall, precision, method="continous"):
+def compute_ap(recall, precision, method="interp"):
     """
     Compute the average precision, given the recall and precision curves.
     Modified to support both continuous and interpolated (COCO-style) AP calculation.
