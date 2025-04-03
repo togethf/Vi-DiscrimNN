@@ -81,7 +81,7 @@ class ClassifyDataset(Dataset):
 
 
 class DetectionDataset(Dataset):
-    def __init__(self, img_dir, label_dir, mode, open=None):
+    def __init__(self, img_dir, mode, open=None):
         self.open = open
         self.mode = mode
         self.img_paths = [os.path.join(img_dir, mode, name) for name in os.listdir(os.path.join(img_dir, mode))]
