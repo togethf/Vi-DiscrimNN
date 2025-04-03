@@ -2,12 +2,16 @@ import numpy as np
 import os
 import argparse
 import os
+from commons.dataset import DetectionDataset
 from commons.utils import save, extract_label_full
 from config import IMGSZ
 from commons.det_utils import cal_iou
 from tqdm import tqdm
 from commons.proutils import get_model, parse
 import matplotlib.pyplot as plt
+from torch.utils.data import DataLoader, Dataset
+from commons.metrics import *
+import torch
 
 # 格式化真实标签
 def format_gt(gt_labels, img_width, img_height):
@@ -174,6 +178,50 @@ def validate(model, dconfig):
     print("validate on diff done, map50: ", metrics_d.box.map50)
     return metrics_e.box.map50, metrics_d.box.map50
 
+def val(model, dconfig):
+    def __evaluation(model, val_dataloader, device):
+        labels = []
+        sample_metrics = []  # List of tuples (TP, confs, pred)
+        pbar = tqdm(val_dataloader)
+        classes = []
+        total_num = 0
+        for imgs, targets in pbar:
+            # Extract classes
+            if len(targets.shape) == 1:
+                classes += []
+            else:
+                classes += targets[:, 0].tolist()
+                targets[:, 1:5] = xywh2xyxy(targets[:, 1:5])
+                targets[:, 1:5] *= torch.tensor([*IMGSZ, *IMGSZ])
+
+            labels = targets.to(device)
+            imgs = imgs.to(device)
+            output = model.predict(imgs, verbose=False)
+            total_num += imgs.shape[0]
+            pbar.set_description("Evaluation model:") 
+            sample_metrics += get_batch_statistics(output, labels, device)
+        if len(sample_metrics) == 0:  # No detections over whole validation set.
+            print("---- No detections over whole validation set ----")
+            return None
+
+        # Concatenate sample statistics
+        true_positives, pred_scores, pred_labels = [np.concatenate(x, 0) for x in list(zip(*sample_metrics))]
+        metrics_output = ap_per_class(true_positives, pred_scores, pred_labels, classes)
+        return metrics_output
+
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    X_e = dconfig['output_easy_dir'].replace('easy', os.path.join('easy', 'images'))
+    dataset = DetectionDataset(X_e, 'val', open=True)
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=DetectionDataset.collate_fn)
+    performance_e = __evaluation(model, dataloader, device)
+    print("validate on easy done, map50: ", performance_e[2])
+    X_d = dconfig['output_diff_dir'].replace('diff', os.path.join('diff', 'images'))
+    dataset = DetectionDataset(X_d, 'val', open=True)
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=DetectionDataset.collate_fn)
+    performance_d = __evaluation(model, dataloader, device)
+    print("validate on diff done, map50: ", performance_d[2])
+    return performance_e[2], performance_d[2]
+
 def dynamic_mAP50(edge_score, cloud_score, ratio):
     return edge_score * ratio + cloud_score * (1-ratio)
 
@@ -220,12 +268,12 @@ def main():
     parser = argparse.ArgumentParser(description='find outlier based method to tag the difficulty of imgs')
     parser.add_argument('--dataset', type=str, default='pestv3', help='选择划分哪个数据集：voc12/voc07/coco/pestv3/visdrone/pestv1/ip102/pest24')
     parser.add_argument('--model_zoo', type=str, default='pestv3', help='选择用哪套模型来划分数据:voc12/voc07/coco/pestv3/visdrone/pestv1/ip102/pest24')
-    parser.add_argument('--validate', type=str, default=None, help='会决定是划分数据集还是验证')
+    parser.add_argument('--validate', type=int, default=None, help='内容是划分ratio, 如果是None则不验证，否则用ratio进行验证')
     parser.add_argument('--judge', type=str, default=None,help='是否启用judge')
     parser.add_argument('--iter', type=str, default=None, help='是否通过遍历找到最佳的划分点，保存图像')
     parser.add_argument('--keep_dir', action="store_false", help="是否清除原先的目录，不输入时为True")
     parser.add_argument('--dataType', type=str, default='val', help='选择验证集还是训练集')
-    parser.add_argument('--out', type=str, default='exp', help='output dir')
+    parser.add_argument('--out', type=str, default='expN', help='output dir')
     opt = parser.parse_args()
     dconfig, mconfig = parse(opt)  
     img_dir = dconfig['source_images'] + opt.dataType
@@ -233,7 +281,7 @@ def main():
     if opt.validate:
         for model in model_list:
             print("validate name: ", model.model_name)
-            validate(model, dconfig)
+            val(model, dconfig, opt.validate)
     else:
         trace = []
         diff = []
@@ -292,7 +340,7 @@ def main():
                 for idx, model in enumerate(model_list):
                     if idx in result_maps:
                         print("validate name: ", model.model_name)
-                        eap, dap = validate(model, dconfig)
+                        eap, dap = val(model, dconfig)
                         e_map_result, d_map_result = result_maps[idx]
                         e_map_result.append((n/10, eap))
                         d_map_result.append((n/10, dap))
