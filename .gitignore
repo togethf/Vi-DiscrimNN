@@ -7,3 +7,4 @@ figure
 randnote.ipynb
 exp
 expN
+.pytest_cache
