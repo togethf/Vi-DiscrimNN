@@ -114,12 +114,13 @@ class cls_scheme:
         return accuracy
 
 class ViDiscrimNN(nn.Module):
-    def __init__(self, weight, dconfig, *args, **kwargs):
+    def __init__(self, weight, dconfig, mode, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.router = self._prepare_router(weight)
         self.weak_det = YOLO(dconfig['weak_detector'])
         self.strong_det = YOLO(dconfig['strong_detector'])
         self.cloud_flag = False # random scheme中要用到
+        self.mode = mode
     
     def _prepare_router(self, weight):
         router = shufflenet_v2_x0_5()
@@ -129,7 +130,7 @@ class ViDiscrimNN(nn.Module):
         return router
 
     
-    def forward(self, X, mode): 
+    def forward(self, X): 
         def _prepare_det(mode):
             if mode == 'dynamic':
                 return self.weak_det, self.strong_det
@@ -151,7 +152,7 @@ class ViDiscrimNN(nn.Module):
                 return det1, det2
             else:
                 return self.strong_det, self.strong_det
-        det1, det2 = _prepare_det(mode)
+        det1, det2 = _prepare_det(self.mode)
         outputs = self.router(X)
         rst = outputs.argmax(dim=1)
         easys = []
@@ -187,7 +188,7 @@ class ViDiscrimNN(nn.Module):
         return outs, offloading
 
     #模型评估
-    def evaluation(self, val_dataloader, device, mode):
+    def evaluation(self, val_dataloader, device):
         labels = []
         sample_metrics = []  # List of tuples (TP, confs, pred)
         pbar = tqdm(val_dataloader)
@@ -208,12 +209,12 @@ class ViDiscrimNN(nn.Module):
             imgs = imgs.to(device)
             # ====================== time begin =====================
             begin = time.time()
-            output, offloading_num = self.forward(imgs, mode)
+            output, offloading_num = self.forward(imgs)
             end = time.time()
             total_num += imgs.shape[0]
             total_time += end - begin
             # ====================== time end =====================
-            pbar.set_description("Evaluation model:") 
+            pbar.set_description(f"Evaluation model in {self.mode} mode") 
             sample_metrics += get_batch_statistics(output, labels, device)
             total_offloading += offloading_num
         if len(sample_metrics) == 0:  # No detections over whole validation set.
@@ -231,7 +232,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='discrimnn system design')
     parser.add_argument('--dataset', type=str, default='pestv3',  help='选择划分哪个数据集：voc12/voc07/coco/pestv3/visdrone/pestv1/ip102/pest24')
     parser.add_argument('--model_zoo', type=str, default='pestv3', help='选择用哪套模型来划分数据:voc12/voc07/coco/pestv3/visdrone/pestv1/ip102/pest24')
-    parser.add_argument('--expected_ap', type=int, default=0.83, help='用户希望系统能够达到的精度')
+    parser.add_argument('--expected_ap', type=float, default=0.85, help='用户希望系统能够达到的精度')
     parser.add_argument('--iterdata', type=str, default='expN/data', help='保存outlier迭代输出文件的目录')
     parser.add_argument('--dataType', type=str, default='val', help='iter文件的类型, train or val')
     opt = parser.parse_args()
@@ -253,64 +254,79 @@ if __name__ == "__main__":
     dynamic_aps = np.array(dynamic_ap(iter_aps, cs, r))
     # 找到dynamic_ap值大于用户值的下标
     idx = np.where(dynamic_aps > expected_ap)[0]
-    loc, max_r = max_edge(r, cs, idx)
+    if len(idx) == 0:
+        mode = 'cloud'
+        loc, max_r = 0, 0 # 这两个参数这种情况下没有意义，传入ViDiscrimNN的c_models[loc]不会生效，因为mode = 'cloud'
+    else:
+        mode = 'dynamic'
+        loc, max_r = max_edge(r, cs, idx)
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = ViDiscrimNN(c_models[loc], dconfig).to(device)
+    model = ViDiscrimNN(c_models[loc], dconfig, mode).to(device)
     dataset = DetectionDataset(dconfig['source_images'], 'val', open=True)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=DetectionDataset.collate_fn)
     # dataloader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=16, collate_fn=DetectionDataset.collate_fn)
-    modes = ['edge', 'cloud', 'dynamic', 'random']
-    metrics = {
-        'Precision': [],
-        'Recall': [],
-        'mAP50': [],
-        'F1 Score': [],
-        'FPS': [],
-        'Uploading': []
-    }
 
-    for mode in modes:
-        performance, fps, uploading = model.evaluation(dataloader, device, mode)
-        print(f'----------------------execute {mode} mode:-----------------------')
-        print("Precision: ", performance[0])
-        print("Recall", performance[1])
-        print("mAP50", performance[2])
-        print("F1 Score: ", performance[3])
-        print("FPS: ", fps)
-        print("Uploading ", uploading)
-        print(f'----------------------end evaluation:-----------------------')
+    performance, fps, uploading = model.evaluation(dataloader, device)
+    print("Precision: ", performance[0])
+    print("Recall", performance[1])
+    print("mAP50", performance[2])
+    print("F1 Score: ", performance[3])
+    print("FPS: ", fps)
+    print("Uploading ", uploading)
 
-        metrics['Precision'].append(performance[0])
-        metrics['Recall'].append(performance[1])
-        metrics['mAP50'].append(performance[2])
-        metrics['F1 Score'].append(performance[3])
-        metrics['FPS'].append(fps)
-        metrics['Uploading'].append(uploading)
 
-    # 绘制图表
-    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
-    fig.suptitle('Model Performance in Different Modes', fontsize=16)
+    # modes = ['edge', 'cloud', 'dynamic', 'random']
+    # metrics = {
+    #     'Precision': [],
+    #     'Recall': [],
+    #     'mAP50': [],
+    #     'F1 Score': [],
+    #     'FPS': [],
+    #     'Uploading': []
+    # }
 
-    # 定义每个指标的纵坐标范围
-    ylim_dict = {
-        'Precision': (0.5, 1),      # Precision 范围 0 到 1
-        'Recall': (0.5, 1),         # Recall 范围 0 到 1
-        'mAP50': (0.5, 1),          # mAP50 范围 0 到 1
-        'F1 Score': (0.5, 1),       # F1 Score 范围 0 到 1
-        'FPS': (0, max(metrics['FPS']) + 10),  # FPS 范围 0 到最大值 + 10
-        'Uploading': (0, max(metrics['Uploading']) + 10)  # Uploading 范围 0 到最大值 + 10
-    }
+    # for mode in modes:
+    #     performance, fps, uploading = model.evaluation(dataloader, device)
+    #     print(f'----------------------execute {mode} mode:-----------------------')
+    #     print("Precision: ", performance[0])
+    #     print("Recall", performance[1])
+    #     print("mAP50", performance[2])
+    #     print("F1 Score: ", performance[3])
+    #     print("FPS: ", fps)
+    #     print("Uploading ", uploading)
+    #     print(f'----------------------end evaluation:-----------------------')
 
-    for ax, (metric, values) in zip(axes.flatten(), metrics.items()):
-        ax.bar(modes, values, color=['skyblue', 'orange', 'red', 'green'])
-        ax.set_title(metric)
-        ax.set_ylabel(metric)
-        ax.set_xlabel('Mode')
-        ax.set_ylim(ylim_dict[metric])  # 设置纵坐标范围
-        ax.grid(axis='y', linestyle='--', alpha=0.7)
+    #     metrics['Precision'].append(performance[0])
+    #     metrics['Recall'].append(performance[1])
+    #     metrics['mAP50'].append(performance[2])
+    #     metrics['F1 Score'].append(performance[3])
+    #     metrics['FPS'].append(fps)
+    #     metrics['Uploading'].append(uploading)
 
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
-    output_path = "figure/performance_metrics.png"
-    plt.savefig(output_path)
-    print(f"Performance metrics chart saved to {output_path}")
+    # # 绘制图表
+    # fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+    # fig.suptitle('Model Performance in Different Modes', fontsize=16)
+
+    # # 定义每个指标的纵坐标范围
+    # ylim_dict = {
+    #     'Precision': (0.5, 1),      # Precision 范围 0 到 1
+    #     'Recall': (0.5, 1),         # Recall 范围 0 到 1
+    #     'mAP50': (0.5, 1),          # mAP50 范围 0 到 1
+    #     'F1 Score': (0.5, 1),       # F1 Score 范围 0 到 1
+    #     'FPS': (0, max(metrics['FPS']) + 10),  # FPS 范围 0 到最大值 + 10
+    #     'Uploading': (0, max(metrics['Uploading']) + 10)  # Uploading 范围 0 到最大值 + 10
+    # }
+
+    # for ax, (metric, values) in zip(axes.flatten(), metrics.items()):
+    #     ax.bar(modes, values, color=['skyblue', 'orange', 'red', 'green'])
+    #     ax.set_title(metric)
+    #     ax.set_ylabel(metric)
+    #     ax.set_xlabel('Mode')
+    #     ax.set_ylim(ylim_dict[metric])  # 设置纵坐标范围
+    #     ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+    # plt.tight_layout(rect=[0, 0, 1, 0.96])
+    # output_path = "figure/performance_metrics.png"
+    # plt.savefig(output_path)
+    # print(f"Performance metrics chart saved to {output_path}")
 
