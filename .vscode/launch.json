@@ -173,20 +173,6 @@
             ]
         },
         {
-            "name": "outlier-voc12-val",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "outlier.py",
-            "cwd": "${workspaceFolder}",
-            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
-            "console": "integratedTerminal",
-            "args": [
-                "--dataset", "voc12",
-                "--model_zoo", "voc12",
-                "--validate", "True"
-            ]
-        },
-        {
             "name": "outlier-voc12-partition-keep",
             "type": "debugpy",
             "request": "launch",
@@ -211,20 +197,6 @@
             "args": [
                 "--dataset", "voc12",
                 "--model_zoo", "voc12",
-            ]
-        },
-        {
-            "name": "outlier-voc07-val",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "outlier.py",
-            "cwd": "${workspaceFolder}",
-            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
-            "console": "integratedTerminal",
-            "args": [
-                "--dataset", "voc07",
-                "--model_zoo", "voc07",
-                "--validate", "True"
             ]
         },
         {
@@ -368,34 +340,6 @@
             ]
         },  
         {
-            "name": "outlier-pestv3-val",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "outlier.py",
-            "cwd": "${workspaceFolder}",
-            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
-            "console": "integratedTerminal",
-            "args": [
-                "--dataset", "pestv3",
-                "--model_zoo", "pestv3",
-                "--validate", "True"
-            ]
-        }, 
-        {
-            "name": "mAPI-coco-val",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "mAPI.py",
-            "cwd": "${workspaceFolder}",
-            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
-            "console": "integratedTerminal",
-            "args": [
-                "--dataset", "coco",
-                "--model", "coco",
-                "--validate", "True"
-            ]
-        },
-        {
             "name": "mAPI-coco-partition",
             "type": "debugpy",
             "request": "launch",
@@ -409,20 +353,6 @@
             ]
         },
         {
-            "name": "mAPI-voc12-val",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "mAPI.py",
-            "cwd": "${workspaceFolder}",
-            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
-            "console": "integratedTerminal",
-            "args": [
-                "--dataset", "voc12",
-                "--model", "voc12",
-                "--validate", "True"
-            ]
-        }, 
-        {
             "name": "mAPI-voc12-partition",
             "type": "debugpy",
             "request": "launch",
@@ -433,20 +363,6 @@
             "args": [
                 "--dataset", "voc12",
                 "--model", "voc12",
-            ]
-        }, 
-        {
-            "name": "mAPI-voc07-val",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "mAPI.py",
-            "cwd": "${workspaceFolder}",
-            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
-            "console": "integratedTerminal",
-            "args": [
-                "--dataset", "voc07",
-                "--model", "voc07",
-                "--validate", "True"
             ]
         }, 
         {
@@ -473,20 +389,6 @@
             "args": [
                 "--dataset", "pestv3",
                 "--model", "pestv3",
-            ]
-        },  
-        {
-            "name": "mAPI-pestv3-val",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "mAPI.py",
-            "cwd": "${workspaceFolder}",
-            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
-            "console": "integratedTerminal",
-            "args": [
-                "--dataset", "pestv3",
-                "--model", "pestv3",
-                "--validate", "True"
             ]
         },  
     ],
