@@ -178,37 +178,39 @@ def validate(model, dconfig):
     print("validate on diff done, map50: ", metrics_d.box.map50)
     return metrics_e.box.map50, metrics_d.box.map50
 
+def __evaluation(model, val_dataloader, device):
+    """主要由本文件内部调用
+    """
+    labels = []
+    sample_metrics = []  # List of tuples (TP, confs, pred)
+    pbar = tqdm(val_dataloader)
+    classes = []
+    total_num = 0
+    for imgs, targets in pbar:
+        # Extract classes
+        if len(targets.shape) == 1:
+            classes += []
+        else:
+            classes += targets[:, 0].tolist()
+            targets[:, 1:5] = xywh2xyxy(targets[:, 1:5])
+            targets[:, 1:5] *= torch.tensor([*IMGSZ, *IMGSZ])
+
+        labels = targets.to(device)
+        imgs = imgs.to(device)
+        output = model.predict(imgs, verbose=False)
+        total_num += imgs.shape[0]
+        pbar.set_description("Evaluation model:") 
+        sample_metrics += get_batch_statistics(output, labels, device)
+    if len(sample_metrics) == 0:  # No detections over whole validation set.
+        print("---- No detections over whole validation set ----")
+        return None
+
+    # Concatenate sample statistics
+    true_positives, pred_scores, pred_labels = [np.concatenate(x, 0) for x in list(zip(*sample_metrics))]
+    metrics_output = ap_per_class(true_positives, pred_scores, pred_labels, classes)
+    return metrics_output
+
 def val(model, dconfig):
-    def __evaluation(model, val_dataloader, device):
-        labels = []
-        sample_metrics = []  # List of tuples (TP, confs, pred)
-        pbar = tqdm(val_dataloader)
-        classes = []
-        total_num = 0
-        for imgs, targets in pbar:
-            # Extract classes
-            if len(targets.shape) == 1:
-                classes += []
-            else:
-                classes += targets[:, 0].tolist()
-                targets[:, 1:5] = xywh2xyxy(targets[:, 1:5])
-                targets[:, 1:5] *= torch.tensor([*IMGSZ, *IMGSZ])
-
-            labels = targets.to(device)
-            imgs = imgs.to(device)
-            output = model.predict(imgs, verbose=False)
-            total_num += imgs.shape[0]
-            pbar.set_description("Evaluation model:") 
-            sample_metrics += get_batch_statistics(output, labels, device)
-        if len(sample_metrics) == 0:  # No detections over whole validation set.
-            print("---- No detections over whole validation set ----")
-            return None
-
-        # Concatenate sample statistics
-        true_positives, pred_scores, pred_labels = [np.concatenate(x, 0) for x in list(zip(*sample_metrics))]
-        metrics_output = ap_per_class(true_positives, pred_scores, pred_labels, classes)
-        return metrics_output
-
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     X_e = dconfig['output_easy_dir'].replace('easy', os.path.join('easy', 'images'))
     dataset = DetectionDataset(X_e, 'val', open=True)
@@ -268,9 +270,10 @@ def main():
     parser = argparse.ArgumentParser(description='find outlier based method to tag the difficulty of imgs')
     parser.add_argument('--dataset', type=str, default='pestv3', help='选择划分哪个数据集：voc12/voc07/coco/pestv3/visdrone/pestv1/ip102/pest24')
     parser.add_argument('--model_zoo', type=str, default='pestv3', help='选择用哪套模型来划分数据:voc12/voc07/coco/pestv3/visdrone/pestv1/ip102/pest24')
-    parser.add_argument('--validate', type=int, default=None, help='内容是划分ratio, 如果是None则不验证，否则用ratio进行验证')
+    parser.add_argument('--validate', type=int, default=None, help='是否验证所有baseline模型在完整验证集上的表现')
     parser.add_argument('--judge', type=str, default=None,help='是否启用judge')
     parser.add_argument('--iter', type=str, default=None, help='是否通过遍历找到最佳的划分点，保存图像')
+    parser.add_argument('--iter_weak_model', type=int, default=0, help='iter的时候会用强弱两个检测器去跑ap, 这个值指定了弱检测器使用哪个, 0: n, 1: m, 2: l')
     parser.add_argument('--keep_dir', action="store_false", help="是否清除原先的目录，不输入时为True")
     parser.add_argument('--dataType', type=str, default='val', help='选择验证集还是训练集')
     parser.add_argument('--out', type=str, default='expN', help='output dir')
@@ -279,9 +282,16 @@ def main():
     img_dir = dconfig['source_images'] + opt.dataType
     threshold, model_list = get_model(mconfig)
     if opt.validate:
+        ap_baseline = []
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        dataset = DetectionDataset(dconfig['source_images'], 'val', open=True)
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=DetectionDataset.collate_fn)
         for model in model_list:
             print("validate name: ", model.model_name)
-            val(model, dconfig, opt.validate)
+            performance = __evaluation(model, dataloader, device)
+            print(f"ap50: {performance[2]}")
+            ap_baseline.append(performance[2])
+        np.save(f'{opt.out}/data/{opt.dataType}_baseline_{opt.dataset}', ap_baseline)
     else:
         trace = []
         diff = []
@@ -311,6 +321,7 @@ def main():
         num_total = len(trace)
         # 判断是否要进行遍历，可视化简单困难在不同的划分情况下的map曲线
         if opt.iter:
+            weak_model_id = opt.iter_weak_model
             e_map = []
             d_map = []
             e_map_x = []
@@ -333,8 +344,8 @@ def main():
                 save(diff, ldiff, dconfig['output_diff_dir'], clear_dir=True)
                 # 使用字典来存储不同 idx 对应的结果列表和处理逻辑
                 result_maps = {
-                    0: (e_map, d_map),
-                    2: (e_map_x, d_map_x)
+                    weak_model_id: (e_map, d_map),
+                    3: (e_map_x, d_map_x)
                 }
 
                 for idx, model in enumerate(model_list):
@@ -345,9 +356,9 @@ def main():
                         e_map_result.append((n/10, eap))
                         d_map_result.append((n/10, dap))
             # 保存迭代ap结果
-            np.savez(f'{opt.out}/data/{opt.dataType}_iter_map_{opt.dataset}', e_map=e_map, d_map=d_map, e_map_x=e_map_x, d_map_x=d_map_x)
+            np.savez(f'{opt.out}/data/{opt.dataType}_iter_map_model{weak_model_id}_{opt.dataset}', e_map=e_map, d_map=d_map, e_map_x=e_map_x, d_map_x=d_map_x)
             # 调用绘图函数
-            save_map_curves(e_map, d_map, e_map_x, d_map_x, save_path=f'{opt.out}/figure/{opt.dataType}_ratio_iter_{opt.dataset}.png')
+            save_map_curves(e_map, d_map, e_map_x, d_map_x, save_path=f'{opt.out}/figure/{opt.dataType}_ratio_iter_model{weak_model_id}_{opt.dataset}.png')
         else:
             num_easy = int(threshold * num_total)
             for i, l, _ in trace[:num_easy]:
