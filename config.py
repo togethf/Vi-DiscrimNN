@@ -6,7 +6,7 @@ IMGSZ = (640, 640)
 
 judge_config = {
     'pest24': {
-        'threshold': 0.4, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
+        'threshold': 0.4, # 
         'models': [
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'pest24', '11n.pt'),
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'pest24', '11m.pt'),
@@ -15,7 +15,7 @@ judge_config = {
         ]
     },
     'ip102': {
-        'threshold': 0.4, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
+        'threshold': 0.4, # 
         'models': [
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'ip102', '11n.pt'),
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'ip102', '11m.pt'),
@@ -24,7 +24,7 @@ judge_config = {
         ]
     },
     'pestv1': {
-        'threshold': 0.4, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
+        'threshold': 0.4, # 
         'models': [
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv1', '11n.pt'),
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv1', '11m.pt'),
@@ -33,7 +33,7 @@ judge_config = {
         ]
     },
     'visdrone': {
-        'threshold': 0.4, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
+        'threshold': 0.4, # 
         'models': [
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'visdrone', '11n.pt'),
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'visdrone', '11m.pt'),
@@ -42,7 +42,7 @@ judge_config = {
         ]
     },
     'pestv3': {
-        'threshold': 0.75, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
+        'threshold': 0.35, # 
         'models': [
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv3', '11n.pt'),
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv3', '11m.pt'),
@@ -51,7 +51,7 @@ judge_config = {
         ]
     },
     'voc07': {
-        'threshold': 0.8, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
+        'threshold': 0.8, # 
         'models': [
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'voc07', '11n.pt'),
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'voc07', '11m.pt'),
@@ -60,7 +60,7 @@ judge_config = {
         ]
     },
     'voc12': {
-        'threshold': 0.6, # 2是中位数，-0.5是为了尽可能让模棱两可的样本是困难样本
+        'threshold': 0.6, # 
         'models': [
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'voc12', '11n.pt'),
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'voc12', '11m.pt'),
