@@ -233,24 +233,39 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', type=str, default='pestv3',  help='选择划分哪个数据集：voc12/voc07/coco/pestv3/visdrone/pestv1/ip102/pest24')
     parser.add_argument('--model_zoo', type=str, default='pestv3', help='选择用哪套模型来划分数据:voc12/voc07/coco/pestv3/visdrone/pestv1/ip102/pest24')
     parser.add_argument('--expected_ap', type=float, default=0.85, help='用户希望系统能够达到的精度')
+    parser.add_argument('--edge_level', type=int, default=0, help='边缘设备算力所能承载的最大模型, 0为n, 以此类推')
     parser.add_argument('--iterdata', type=str, default='expN/data', help='保存outlier迭代输出文件的目录')
+    parser.add_argument('--baseline_data', type=str, default='expN/data', help='保存baseline性能文件的目录')
     parser.add_argument('--dataType', type=str, default='val', help='iter文件的类型, train or val')
     opt = parser.parse_args()
+
     dconfig, mconfig = parse(opt)
+    expected_ap = opt.expected_ap
+    baseline_path = os.path.join(opt.baseline_data, f'{opt.dataType}_baseline_{opt.dataset}.npy')
+    baseline_aps = np.load(baseline_path)
+    print(f"system performance ranging from {baseline_aps[0]} to {baseline_aps[-1]}:")
+    # 获取可用的边缘detector
+    eg_level = min(opt.edge_level, len(baseline_aps-1))
+    assert eg_level >= 0, '边缘算力过低, 不足以支持DNN推理.'
+    print('edge model juding......')
+    for m_i in range(eg_level+1):
+        if baseline_aps[m_i] >= expected_ap:
+            print(f"edge model{m_i} mAP50: {baseline_aps[m_i]} >= user expected {expected_ap}")
+            print("all samples run on the edge.")
+            sys.exit(0)
+    print(f"edge model{eg_level} chosen, mAP50: {baseline_aps[eg_level]}")
 
     # 获取划分比例
     r = [30, 40, 50, 60, 70]
-
     # 解析npz文件，用户获取ap的迭代曲线
-    npz_path = os.path.join(opt.iterdata, f'{opt.dataType}_iter_map_{opt.dataset}.npz')
-    iter_aps = resolve_npz(npz_path)
+    iterap_path = os.path.join(opt.iterdata, f'{opt.dataType}_iter_map_model{eg_level}_{opt.dataset}.npz')
+    iter_aps = resolve_npz(iterap_path)
 
     # 训练分类器，获得分类策略
     scheme = cls_scheme(dataset=opt.dataset, ratio=r)
     cs = scheme.scores()
     c_models = scheme.items()
     # 计算ratio
-    expected_ap = opt.expected_ap
     dynamic_aps = np.array(dynamic_ap(iter_aps, cs, r))
     # 找到dynamic_ap值大于用户值的下标
     idx = np.where(dynamic_aps > expected_ap)[0]
