@@ -178,7 +178,7 @@ class ViDiscrimNN(nn.Module):
             'cloud': 1,
             'random': 1 if self.cloud_flag else 0
         }
-        offloading = weights[mode] * IMGSZ[0] * IMGSZ[1] * 3 
+        offloading = weights[mode] * IMGSZ[0] * IMGSZ[1] * 24 
         # 将预测结果根据索引放回到对应位置
         for i, idx in enumerate(easys):
             outs[idx] = eouts[i]
@@ -287,7 +287,7 @@ if __name__ == "__main__":
     print("mAP50", performance[2])
     print("F1 Score: ", performance[3])
     print("FPS: ", fps)
-    print("Uploading ", uploading)
+    print(f"Total params: {(IMGSZ[0] * IMGSZ[1] * 24 * 1801) / 8 / 1024}KB, Uploading {(uploading) / 8 / 1024}KB")
 
 
     # modes = ['edge', 'cloud', 'dynamic', 'random']
