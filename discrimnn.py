@@ -287,7 +287,7 @@ if __name__ == "__main__":
     print("mAP50", performance[2])
     print("F1 Score: ", performance[3])
     print("FPS: ", fps)
-    print(f"Total params: {(IMGSZ[0] * IMGSZ[1] * 24 * 1801) / 8 / 1024}KB, Uploading {(uploading) / 8 / 1024}KB")
+    print(f"Total params: {(IMGSZ[0] * IMGSZ[1] * 24 * 1801) / 8 / 1024 / 1024}MB, Uploading {(uploading) / 8 / 1024 / 1024}MB")
 
 
     # modes = ['edge', 'cloud', 'dynamic', 'random']
