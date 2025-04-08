@@ -17,6 +17,7 @@ import random
 from commons.proutils import parse
 from commons.utils import resolve_npz
 from commons.metrics import *
+from torch.nn.functional import softmax
     
 def max_edge(rs, clfs, idx):
     rs, clfs = np.array(rs), np.array(clfs)
@@ -114,13 +115,14 @@ class cls_scheme:
         return accuracy
 
 class ViDiscrimNN(nn.Module):
-    def __init__(self, weight, dconfig, mode, *args, **kwargs):
+    def __init__(self, weight, dconfig, mode, bias=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.router = self._prepare_router(weight)
         self.weak_det = YOLO(dconfig['weak_detector'])
         self.strong_det = YOLO(dconfig['strong_detector'])
         self.cloud_flag = False # random scheme中要用到
         self.mode = mode
+        self.bias = bias
     
     def _prepare_router(self, weight):
         router = shufflenet_v2_x0_5()
@@ -154,7 +156,10 @@ class ViDiscrimNN(nn.Module):
                 return self.strong_det, self.strong_det
         det1, det2 = _prepare_det(self.mode)
         outputs = self.router(X)
+        outputs = softmax(outputs, dim=1)
         rst = outputs.argmax(dim=1)
+        if self.bias and torch.max(outputs, 1)[0] < self.bias:
+            rst = torch.ones(outputs.shape[0]).to(outputs.device)
         easys = []
         diffs = []
         eouts = []
@@ -256,7 +261,7 @@ if __name__ == "__main__":
     print(f"edge model{eg_level} chosen, mAP50: {baseline_aps[eg_level]}")
 
     # 获取划分比例
-    r = [30, 40, 50, 60, 70]
+    r = [30, 35, 40, 45, 50, 55, 60, 65, 70]
     # 解析npz文件，用户获取ap的迭代曲线
     iterap_path = os.path.join(opt.iterdata, f'{opt.dataType}_iter_map_model{eg_level}_{opt.dataset}.npz')
     iter_aps = resolve_npz(iterap_path)
