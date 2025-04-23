@@ -15,18 +15,31 @@ import time
 from torchvision.models import shufflenet_v2_x0_5, ShuffleNet_V2_X0_5_Weights, shufflenet_v2_x1_0, ShuffleNet_V2_X1_0_Weights
 import random
 from commons.proutils import parse
-from commons.utils import resolve_npz
+from commons.utils import resolve_npz, validate_probabilities
 from commons.metrics import *
 from torch.nn.functional import softmax
     
-def max_edge(rs, clfs, idx):
+def max_edge(rs, clfs, idx, mode):
     rs, clfs = np.array(rs), np.array(clfs)
-    candidate_rs, candidate_clf = rs[idx], clfs[idx]
-    candidate_edge_x = candidate_rs * candidate_clf + (1 - candidate_rs) * (1 - candidate_clf)
+    candidate_rs, candidate_clf_e, candidate_clf_h = rs[idx], clfs[idx][:, 0], clfs[idx][:, 0]
+    if mode == 1:
+        candidate_clf_e, candidate_clf_h = clfs[idx][:, 1], clfs[idx][:, 2]
+    candidate_edge_x = candidate_rs * candidate_clf_e + (1 - candidate_rs) * (1 - candidate_clf_h)
     max_indices = np.where(candidate_edge_x == np.max(candidate_edge_x))[0]
     return max_indices[-1], candidate_rs[max_indices[-1]]
 
-def dynamic_ap(aps, clfs, r):
+def dynamic_ap(aps, clfs, r, mode):
+    """计算动态AP
+
+    Args:
+        aps (_type_): _description_
+        clfs (_type_): _description_
+        r (_type_): _description_
+        mode (_type_): 0表示使用平均分类精度, 1表示使用类别精度
+
+    Returns:
+        _type_: _description_
+    """
     emap, dmap, emapx, dmapx = aps[0][1], aps[1][1], aps[2][1], aps[3][1]
     candidate_n = len(emap)
     # dynamic_ap列表
@@ -40,10 +53,12 @@ def dynamic_ap(aps, clfs, r):
             continue
         pcls = clfs[r_index]
         pwe, pwh, pse, psh = emap[i][1], dmap[i][1], emapx[i][1], dmapx[i][1]
-        p_correct_e = r[r_index] * pcls * pwe
-        p_wrong_h = (1 - r[r_index]) * (1 - pcls) * pwh
-        p_correct_h = (1 - r[r_index]) * pcls * psh
-        p_wrong_e = r[r_index] * (1 - pcls) * pse
+        pcls_e = pcls[0] if mode==0 else pcls[1]
+        pcls_h = pcls[0] if mode==0 else pcls[2]
+        p_correct_e = r[r_index] * pcls_e * pwe
+        p_wrong_h = (1 - r[r_index]) * (1 - pcls_h) * pwh
+        p_correct_h = (1 - r[r_index]) * pcls_h * psh
+        p_wrong_e = r[r_index] * (1 - pcls_e) * pse
         ptotal = p_correct_e + p_wrong_h + p_correct_h + p_wrong_e
         dynamic_aps.append(ptotal)
         r_index += 1
@@ -99,6 +114,8 @@ class cls_scheme:
         val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=16)
         
         # 计算分类精度
+        class_correct = dict([[0, 0], [1, 0]]) # 每个类别的正确数
+        class_total = dict([[0, 0], [1, 0]])  # 每个类别的总数
         correct = 0
         total = 0
         
@@ -108,11 +125,26 @@ class cls_scheme:
                 outputs = model(images)
                 _, preds = torch.max(outputs, 1)  # 获取预测类别
                 
+                # 更新整体统计
                 correct += (preds == labels).sum().item()  # 统计正确预测数
                 total += labels.size(0)  # 统计总样本数
+
+                # 单独统计类别的情况
+                for label, pred in zip(labels, preds):
+                    cls = label.item()
+                    class_total[cls] += 1
+                    if pred == label:
+                        class_correct[cls] += 1
         
         accuracy = correct / total  # 计算分类精度
-        return accuracy
+        # 计算每个类别的精度
+        class_accuracy = {}
+        for cls in sorted(class_total.keys()):
+            if class_total[cls] > 0:
+                class_accuracy[cls] = class_correct[cls] / class_total[cls]
+            else:
+                class_accuracy[cls] = 0.0
+        return accuracy, class_accuracy[0], class_accuracy[1]  # 返回整体精度和每个类别的精度
 
 class ViDiscrimNN(nn.Module):
     def __init__(self, weight, dconfig, mode, bias=None, *args, **kwargs):
@@ -157,6 +189,7 @@ class ViDiscrimNN(nn.Module):
         det1, det2 = _prepare_det(self.mode)
         outputs = self.router(X)
         outputs = softmax(outputs, dim=1)
+        validate_probabilities(outputs)
         rst = outputs.argmax(dim=1)
         if self.bias and torch.max(outputs, 1)[0] < self.bias:
             rst = torch.ones(outputs.shape[0]).to(outputs.device)
@@ -242,10 +275,12 @@ if __name__ == "__main__":
     parser.add_argument('--iterdata', type=str, default='expN/data', help='保存outlier迭代输出文件的目录')
     parser.add_argument('--baseline_data', type=str, default='expN/data', help='保存baseline性能文件的目录')
     parser.add_argument('--dataType', type=str, default='val', help='iter文件的类型, train or val')
+    parser.add_argument('--ap_mode', type=int, default=0, help='ap计算方式，0表示平均分类精度，1表示类别精度')
     opt = parser.parse_args()
 
     dconfig, mconfig = parse(opt)
     expected_ap = opt.expected_ap
+    ap_mode = opt.ap_mode
     baseline_path = os.path.join(opt.baseline_data, f'{opt.dataType}_baseline_{opt.dataset}.npy')
     baseline_aps = np.load(baseline_path)
     print(f"system performance ranging from {baseline_aps[0]} to {baseline_aps[-1]}:")
@@ -271,7 +306,7 @@ if __name__ == "__main__":
     cs = scheme.scores()
     c_models = scheme.items()
     # 计算ratio
-    dynamic_aps = np.array(dynamic_ap(iter_aps, cs, r))
+    dynamic_aps = np.array(dynamic_ap(iter_aps, cs, r, ap_mode))
     # 找到dynamic_ap值大于用户值的下标
     idx = np.where(dynamic_aps > expected_ap)[0]
     if len(idx) == 0:
@@ -279,9 +314,9 @@ if __name__ == "__main__":
         loc, max_r = 0, 0 # 这两个参数这种情况下没有意义，传入ViDiscrimNN的c_models[loc]不会生效，因为mode = 'cloud'
     else:
         mode = 'dynamic'
-        loc, max_r = max_edge(r, cs, idx)
+        loc, max_r = max_edge(r, cs, idx, ap_mode)
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = ViDiscrimNN(c_models[loc], dconfig, mode).to(device)
+    model = ViDiscrimNN(c_models[loc], dconfig, mode, 0.8).to(device)
     dataset = DetectionDataset(dconfig['source_images'], 'val', open=True)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=DetectionDataset.collate_fn)
     # dataloader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=16, collate_fn=DetectionDataset.collate_fn)
