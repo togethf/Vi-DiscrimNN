@@ -7,6 +7,28 @@ import shutil
 from PIL import Image
 import numpy as np
 
+
+def validate_probabilities(outputs):
+    """验证概率输出格式的完整函数"""
+    # 类型检查
+    if not isinstance(outputs, torch.Tensor):
+        raise TypeError(f"输出应是torch.Tensor，实际是{type(outputs)}")
+    
+    # 形状检查
+    if outputs.ndim != 2 or outputs.shape[1] != 2:
+        raise ValueError(f"输出形状应为(N,2)，实际是{outputs.shape}")
+    
+    # 概率值检查
+    if not torch.all((outputs >= 0) & (outputs <= 1)).item():
+        bad_values = outputs[(outputs < 0) | (outputs > 1)]
+        raise ValueError(f"概率值超出[0,1]范围：{bad_values.cpu().numpy()}")
+    
+    # 概率和检查
+    sums = torch.sum(outputs, dim=1)
+    if not torch.allclose(sums, torch.ones_like(sums), atol=1e-5):
+        bad_sums = sums[~torch.isclose(sums, torch.ones_like(sums), atol=1e-5)]
+        raise ValueError(f"概率和不为1的错误值：{bad_sums.cpu().numpy()}")
+    
 def resolve_npz(npz_file):
     fs = np.load(npz_file)
     result = []
