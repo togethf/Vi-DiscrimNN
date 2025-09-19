@@ -69,7 +69,7 @@ def get_model(mconfig):
         model_list.append(YOLO(model))
     return model_list
 
-def validate(model, dconfig):
+def validate(model, dconfig, func=None):
     """验证YOLO模型在难易数据集和整个数据集上的表现
 
     Args:
@@ -80,11 +80,18 @@ def validate(model, dconfig):
     model.val(data=dconfig['cfg'])
     print("validate on whole done ")
 
-    model.val(data=dconfig['cfg'].replace('.yaml', '_easy.yaml'))
-    print("validate on easy done")
+    if func:
+        model.val(data=dconfig['cfg'].replace('.yaml', '_easy.yaml'))
+        print("validate on easy done")
 
-    model.val(data=dconfig['cfg'].replace('.yaml', '_diff.yaml'))
-    print("validate on diff done")
+        model.val(data=dconfig['cfg'].replace('.yaml', '_diff.yaml'))
+        print("validate on diff done")
+    else:
+        model.val(data=dconfig['cfg'].replace('.yaml', '_api_easy.yaml'))
+        print("validate on easy done")
+
+        model.val(data=dconfig['cfg'].replace('.yaml', '_api_diff.yaml'))
+        print("validate on diff done")
 
 def mAPI(outs, labels, classes, device):
     """计算单张图片的map
@@ -107,9 +114,10 @@ def mAPI(outs, labels, classes, device):
 
 def main():
     parser = argparse.ArgumentParser(description='Calculate mAP for each image in a dataset')
-    parser.add_argument('--dataset', type=str, default='pestv3', help='选择划分哪个数据集：voc12/voc07/pestv3')
-    parser.add_argument('--model', type=str, default='pestv3', help='选择用哪个系列的检测器pair来划分数据集，而在验证阶段则是用哪套模型来验证:voc12/voc07/pestv3')
-    parser.add_argument('--validate', type=str, default=None, help='会决定是划分数据集还是验证')
+    parser.add_argument('--dataset', type=str, default='coco', help='选择划分哪个数据集：voc12/voc07/pestv3')
+    parser.add_argument('--model', type=str, default='coco', help='选择用哪个系列的检测器pair来划分数据集，而在验证阶段则是用哪套模型来验证:voc12/voc07/pestv3')
+    parser.add_argument('--validate', type=str, default=True, help='会决定是划分数据集还是验证')
+    parser.add_argument('--my', type=str, default='yes', help='用什么方法进行难易划分, 默认是mapi, 传值就是用我自己的方法')
     opt = parser.parse_args()
     dconfig, mconfig = parse(opt)
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -118,12 +126,12 @@ def main():
         model_list = get_model(mconfig)
         for model in model_list:
             print("validate name: ", model.model_name)
-            validate(model, dconfig)
+            validate(model, dconfig, opt.my)
     else:
         # 加载模型和数据集
         weak = prepare_det(mconfig['weak_detector'])
         strong = prepare_det(mconfig['strong_detector'])
-        dataset = DetectionDataset(dconfig['source_images'], dconfig['source_labels'], 'val')
+        dataset = DetectionDataset(dconfig['source_images'], 'val')
         dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=DetectionDataset.collate_fn)
 
         easy_imgs = []

@@ -48,14 +48,18 @@ def parse(opt):
 
     return data_config, model_config
 
-def get_model(mconfig):
+def get_model(mconfig, judge=False):
     """获取用于judge的模型
 
     Args:
         mconfig (dict): config.py['which']
     """
     model_list = []
-    for model in mconfig['models']:
-        model_list.append(YOLO(model))
+    if judge:
+        for model in mconfig['judge_models']:
+            model_list.append(YOLO(model))
+    else:
+        for model in mconfig['models']:
+            model_list.append(YOLO(model))
     threshold = mconfig['threshold']
     return threshold, model_list

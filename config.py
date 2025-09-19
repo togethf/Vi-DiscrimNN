@@ -42,12 +42,21 @@ judge_config = {
         ]
     },
     'pestv3': {
-        'threshold': 0.35, # 
-        'models': [
+        'threshold': 0.75, # nmlx时是0.75，nml是0.7
+        'judge_models': [
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv3', '11n.pt'),
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv3', '11m.pt'),
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv3', '11l.pt'),
+        ],
+        'models': [
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv3', '11n.pt'),
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv3', '11s.pt'),
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv3', '11m.pt'),
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv3', '11l.pt'),
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv3', '11x.pt'),
+            # os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv3', '5n.pt'),
+            # os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv3', '11m.pt'),
+            # os.path.join(cwd, 'checkpoint', 'model_zoo', 'pestv3', '8x.pt'),
         ]
     },
     'voc07': {
@@ -60,16 +69,26 @@ judge_config = {
         ]
     },
     'voc12': {
-        'threshold': 0.6, # 
+        'threshold': 0.8, # 
+        'judge_models': [
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'voc12', '11n.pt'),
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'voc12', '11m.pt'),
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'voc12', '11l.pt'),
+        ],
         'models': [
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'voc12', '11n.pt'),
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'voc12', '11m.pt'),
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'voc12', '11l.pt'),
-            os.path.join(cwd, 'checkpoint', 'model_zoo', 'voc12', '11x.pt'),
+            # os.path.join(cwd, 'checkpoint', 'model_zoo', 'voc12', '11x.pt'),
         ]
     },
     'coco': {
-        'threshold': 0.5,
+        'threshold': 0.8,
+        'judge_models':[
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'coco', '11n.pt'),
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'coco', '11m.pt'),
+            os.path.join(cwd, 'checkpoint', 'model_zoo', 'coco', '11l.pt'),
+        ],
         'models': [
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'coco', '11n.pt'),
             os.path.join(cwd, 'checkpoint', 'model_zoo', 'coco', '11m.pt'),
@@ -125,7 +144,7 @@ visdrone_config = {
 
 coco_config = {
     'weak_detector': os.path.join(cwd, 'checkpoint', 'weak_det', 'coco', '11n.pt'),
-    'strong_detector': os.path.join(cwd, 'checkpoint', 'strong_det', 'coco', '11x.pt'),
+    'strong_detector': os.path.join(cwd, 'checkpoint', 'strong_det', 'coco', '11l.pt'),
     # means where stores train/val/test
     'source_images': r'/home/insslab/Desktop/datasets/coco2014/images/',
     'source_labels': r'/home/insslab/Desktop/datasets/coco2014/labels/',
@@ -147,7 +166,7 @@ voc07_config = {
 
 voc12_config = {
     'weak_detector': os.path.join(cwd, 'checkpoint', 'weak_det', 'voc12', '11n.pt'),
-    'strong_detector': os.path.join(cwd, 'checkpoint', 'strong_det', 'voc12', '11x.pt'),
+    'strong_detector': os.path.join(cwd, 'checkpoint', 'strong_det', 'voc12', '11l.pt'),
     # means where stores train/val/test
     'source_images': r'/home/insslab/Desktop/datasets/object_detection/images/',
     'source_labels': r'/home/insslab/Desktop/datasets/object_detection/labels/',

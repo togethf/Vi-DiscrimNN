@@ -238,6 +238,21 @@ def save_map_curves(e_map, d_map, e_map_x, d_map_x, save_path):
     for ratio, ape, apd in zip(ratios_easy, map_easy, map_diff_x):
         dynamic_ap.append(dynamic_mAP50(ape, apd, ratio))
     
+    # 计算差值并找到最大差值的 ratio
+    diff_easy = [abs(de - ee) for de, ee in zip(map_diff, map_easy)]
+    diff_easy_x = [abs(dx - ex) for dx, ex in zip(map_diff_x, map_easy_x)]
+    max_diff_easy_idx = diff_easy.index(max(diff_easy))
+    max_diff_easy_x_idx = diff_easy_x.index(max(diff_easy_x))
+
+    # 找到两个差值和最大的 ratio
+    combined_diff = [de + dx for de, dx in zip(diff_easy, diff_easy_x)]
+    max_combined_diff_idx = combined_diff.index(max(combined_diff))
+
+    print(f"map_diff 和 map_easy 差值最大时的 ratio: {ratios_easy[max_diff_easy_idx]}, 差值: {diff_easy[max_diff_easy_idx]}")
+    print(f"map_diff_x 和 map_easy_x 差值最大时的 ratio: {ratios_easy_x[max_diff_easy_x_idx]}, 差值: {diff_easy_x[max_diff_easy_x_idx]}")
+    print(f"两个差值和最大时的 ratio: {ratios_easy[max_combined_diff_idx]}, 差值和: {combined_diff[max_combined_diff_idx]}")
+
+
     # 创建图形
     plt.figure(figsize=(10, 6))
     
@@ -246,14 +261,14 @@ def save_map_curves(e_map, d_map, e_map_x, d_map_x, save_path):
     plt.plot(ratios_easy_x, map_easy_x, label='Easy - strong', marker='x', linestyle='--')
     
     # 绘制困难图片的 mAP 曲线
-    plt.plot(ratios_easy, map_diff, label='Difficult - weak', marker='o')
-    plt.plot(ratios_easy_x, map_diff_x, label='Difficult - strong', marker='x', linestyle='--')
+    plt.plot(ratios_easy, map_diff, label='Hard - weak', marker='o')
+    plt.plot(ratios_easy_x, map_diff_x, label='Hard - strong', marker='x', linestyle='--')
 
     # 绘制dynamic_map50
-    plt.plot(ratios_easy, dynamic_ap, label='Dynamic_mAP', marker='*')
+    # plt.plot(ratios_easy, dynamic_ap, label='Dynamic_mAP', marker='*')
     
     # 添加标题和标签
-    plt.title("mAP Curves for different ratio of easy samples")
+    # plt.title("mAP Curves for different ratio of easy samples")
     plt.xlabel("Ratio of easy Images")
     plt.ylabel("mAP")
     plt.legend()
@@ -274,13 +289,15 @@ def main():
     parser.add_argument('--judge', type=str, default=None,help='是否启用judge')
     parser.add_argument('--iter', type=str, default=None, help='是否通过遍历找到最佳的划分点，保存图像')
     parser.add_argument('--iter_weak_model', type=int, default=0, help='iter的时候会用强弱两个检测器去跑ap, 这个值指定了弱检测器使用哪个, 0: n, 1: m, 2: l')
+    parser.add_argument('--iter_strong_model', type=int, default=3, help='iter的时候会用强弱两个检测器去跑ap, 这个值指定了强检测器使用哪个, 0: n, 1: m, 2: l')
     parser.add_argument('--keep_dir', action="store_false", help="是否清除原先的目录，不输入时为True")
     parser.add_argument('--dataType', type=str, default='val', help='选择验证集还是训练集')
     parser.add_argument('--out', type=str, default='expN', help='output dir')
     opt = parser.parse_args()
-    dconfig, mconfig = parse(opt)  
+    dconfig, mconfig = parse(opt)
     img_dir = dconfig['source_images'] + opt.dataType
-    threshold, model_list = get_model(mconfig)
+    threshold, judge_model_list = get_model(mconfig, judge=True)
+    _, model_list = get_model(mconfig, judge=False)
     if opt.validate:
         ap_baseline = []
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -289,7 +306,10 @@ def main():
         for model in model_list:
             print("validate name: ", model.model_name)
             performance = __evaluation(model, dataloader, device)
+            print("Precision: ", performance[0])
+            print("Recall", performance[1])
             print(f"ap50: {performance[2]}")
+            print("F1 Score: ", performance[3])
             ap_baseline.append(performance[2])
         np.save(f'{opt.out}/data/{opt.dataType}_baseline_{opt.dataset}', ap_baseline)
     else:
@@ -303,7 +323,7 @@ def main():
             lpath = path.replace('images', 'labels').replace('jpg', 'txt')
             labels = extract_label_full(lpath)
             gt = format_gt(labels, *IMGSZ) if opt.judge else None
-            results = detect(path, True, *model_list)
+            results = detect(path, True, *judge_model_list)
             outliers = find_outliers_dict(results, gt)
             total_outliers = sum(len(bboxes) for model_outliers in outliers for bboxes in model_outliers.values())
             trace.append((path, lpath, total_outliers))
@@ -322,6 +342,7 @@ def main():
         # 判断是否要进行遍历，可视化简单困难在不同的划分情况下的map曲线
         if opt.iter:
             weak_model_id = opt.iter_weak_model
+            strong_model_id = opt.iter_strong_model
             e_map = []
             d_map = []
             e_map_x = []
@@ -345,7 +366,7 @@ def main():
                 # 使用字典来存储不同 idx 对应的结果列表和处理逻辑
                 result_maps = {
                     weak_model_id: (e_map, d_map),
-                    3: (e_map_x, d_map_x)
+                    strong_model_id: (e_map_x, d_map_x)
                 }
 
                 for idx, model in enumerate(model_list):

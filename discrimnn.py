@@ -147,12 +147,12 @@ class cls_scheme:
         return accuracy, class_accuracy[0], class_accuracy[1]  # 返回整体精度和每个类别的精度
 
 class ViDiscrimNN(nn.Module):
-    def __init__(self, weight, dconfig, mode, bias=None, *args, **kwargs):
+    def __init__(self, weight, mconfig, mode, eg_level, bias=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.router = self._prepare_router(weight)
-        self.weak_det = YOLO(dconfig['weak_detector'])
-        self.strong_det = YOLO(dconfig['strong_detector'])
-        self.cloud_flag = False # random scheme中要用到
+        self.weak_det = YOLO(mconfig['models'][int(eg_level)])
+        self.strong_det = YOLO(mconfig['models'][-1])
+        self.cloud_flag = False # random scheme中要用到                                                        
         self.mode = mode
         self.bias = bias
     
@@ -316,14 +316,16 @@ if __name__ == "__main__":
         mode = 'dynamic'
         loc, max_r = max_edge(r, cs, idx, ap_mode)
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = ViDiscrimNN(c_models[loc], dconfig, mode, 0.8).to(device)
+    model = ViDiscrimNN(c_models[loc], mconfig, mode, eg_level, 0.95).to(device)
     dataset = DetectionDataset(dconfig['source_images'], 'val', open=True)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=DetectionDataset.collate_fn)
     # dataloader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=16, collate_fn=DetectionDataset.collate_fn)
 
     performance, fps, uploading = model.evaluation(dataloader, device)
+    print(f'=========={expected_ap}=============')
     print("Precision: ", performance[0])
     print("Recall", performance[1])
+
     print("mAP50", performance[2])
     print("F1 Score: ", performance[3])
     print("FPS: ", fps)

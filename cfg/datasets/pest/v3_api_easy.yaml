@@ -1,0 +1,15 @@
+path: /home/insslab/Desktop/Vi-DiscrimNN/out/api/pestv3/easy/images # dataset root dir
+train: val
+val: val
+
+# Classes
+names:
+  0: DaoZhong
+  1: ErHua
+  2: DaMingShen
+  3: HeiBai
+  4: DaoMingLing
+  5: YuMiMing
+  6: YangXue
+  7: LouGu
+  8: JinGui
