@@ -1,6 +1,6 @@
 from ultralytics import YOLO
 from config_plus import det_pool, ds
-from commons.metrics import bbox_iou, get_batch_statistics, ap_per_class
+from commons.metrics import bbox_iou, get_batch_statistics, ap_per_class, xywh2xyxy
 from commons.dataset import DetectionDataset
 from torch.utils.data import DataLoader
 import torch
@@ -9,8 +9,8 @@ from tqdm import tqdm
 
 def ensemble_yolo(img, model1, model2, iou_thr=0.5, conf_thr=0.4, device='cpu'):
     # 单张图片推理并融合
-    results1 = model1(img)[0]
-    results2 = model2(img)[0]
+    results1 = model1(img, verbose=False)[0]
+    results2 = model2(img, verbose=False)[0]
     dets1 = list(zip(results1.boxes.xyxy.cpu().numpy(), results1.boxes.conf.cpu().numpy(), results1.boxes.cls.cpu().numpy()))
     dets2 = list(zip(results2.boxes.xyxy.cpu().numpy(), results2.boxes.conf.cpu().numpy(), results2.boxes.cls.cpu().numpy()))
 
@@ -75,16 +75,26 @@ class EnsembleYOLO:
 def evaluate_ensemble(model, dataloader, device):
     sample_metrics = []
     classes = []
+    img_size = 640  # 或根据实际图片尺寸动态获取
     for imgs, targets in tqdm(dataloader, desc="Evaluating ensemble"):
         imgs = imgs.to(device)
+        targets = targets.to(device)
+        # 归一化xywh转xyxy像素（与discrimnn.py一致）
+        if len(targets.shape) > 1 and targets.shape[1] >= 5 and targets[:, 1:5].max() <= 1.0:
+            targets[:, 1:5] = xywh2xyxy(targets[:, 1:5])
+            targets[:, 1:5] *= torch.tensor([img_size, img_size, img_size, img_size], device=targets.device)
         if len(targets.shape) == 1:
             classes += []
         else:
             classes += targets[:, 0].tolist()
-            targets[:, 1:5] = targets[:, 1:5]  # 保持xyxy格式
         batch_outputs = []
         for img in imgs:
+            if img.ndim == 3:
+                img = img.unsqueeze(0)
             res = model.predict(img)
+            res.boxes.xyxy = res.boxes.xyxy.to(device)
+            res.boxes.conf = res.boxes.conf.to(device)
+            res.boxes.cls = res.boxes.cls.to(device)
             batch_outputs.append(res)
         sample_metrics += get_batch_statistics(batch_outputs, targets, device)
     if len(sample_metrics) == 0:
@@ -94,6 +104,39 @@ def evaluate_ensemble(model, dataloader, device):
     metrics_output = ap_per_class(true_positives, pred_scores, pred_labels, classes)
     return metrics_output
 
+
+def evaluate_single(model_path, dataloader, device):
+    model = YOLO(model_path)
+    sample_metrics = []
+    classes = []
+    img_size = 640  # 或根据实际图片尺寸动态获取
+    for imgs, targets in tqdm(dataloader, desc="Evaluating single yolo"):
+        imgs = imgs.to(device)
+        targets = targets.to(device)
+        # 归一化xywh转xyxy像素（与ensemble一致）
+        if len(targets.shape) > 1 and targets.shape[1] >= 5 and targets[:, 1:5].max() <= 1.0:
+            targets[:, 1:5] = xywh2xyxy(targets[:, 1:5])
+            targets[:, 1:5] *= torch.tensor([img_size, img_size, img_size, img_size], device=targets.device)
+        # 将类别标签添加到classes列表中
+        if len(targets.shape) == 1:
+            classes += []
+        else:
+            classes += targets[:, 0].tolist()
+        batch_outputs = []
+        for img in imgs:
+            if img.ndim == 3:
+                img = img.unsqueeze(0)
+            results = model(img, verbose=False)[0]
+            batch_outputs.append(results)
+        sample_metrics += get_batch_statistics(batch_outputs, targets, device)
+    if len(sample_metrics) == 0:
+        print("---- No detections ----")
+        return None
+    true_positives, pred_scores, pred_labels = [np.concatenate(x, 0) for x in list(zip(*sample_metrics))]
+    metrics_output = ap_per_class(true_positives, pred_scores, pred_labels, classes)
+    return metrics_output
+
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
@@ -101,20 +144,35 @@ if __name__ == "__main__":
     parser.add_argument('--batch', type=int, default=1, help='batch size')
     parser.add_argument('--iou_thr', type=float, default=0.5, help='IoU阈值')
     parser.add_argument('--conf_thr', type=float, default=0.4, help='置信度阈值')
+    parser.add_argument('--ensemble', type=bool, default=False, help='是否使用ensemble')
     args = parser.parse_args()
 
     # det_pool在config_plus.py中定义，包含两个模型权重路径
     model1_path = det_pool[0]
     model2_path = det_pool[1]
+    model_single_path = det_pool[2]
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     dataset = DetectionDataset(args.data, 'val', open=True)
     dataloader = DataLoader(dataset, batch_size=args.batch, shuffle=False, collate_fn=DetectionDataset.collate_fn)
-
-    ensemble_model = EnsembleYOLO(model1_path, model2_path, args.iou_thr, args.conf_thr, device)
-    metrics_output = evaluate_ensemble(ensemble_model, dataloader, device)
-    if metrics_output is not None:
-        print("Precision: ", metrics_output[0])
-        print("Recall: ", metrics_output[1])
-        print("mAP50: ", metrics_output[2])
-        print("F1 Score: ", metrics_output[3])
+    if args.ensemble:
+        print("===========evaluation ensemble =============")
+        ensemble_model = EnsembleYOLO(model1_path, model2_path, args.iou_thr, args.conf_thr, device)
+        metrics_output = evaluate_ensemble(ensemble_model, dataloader, device)
+        if metrics_output is not None:
+            print("Precision: ", metrics_output[0])
+            print("Recall: ", metrics_output[1])
+            print("mAP50: ", metrics_output[2])
+            print("F1 Score: ", metrics_output[3])
+        print("===========end evaluation=============")
+    else:
+        for i in [2, 3, 4]:
+            model_single_path = det_pool[i]
+            print(f"===========evaluation single yolo[{i}]=============")
+            metrics_output = evaluate_single(model_single_path, dataloader, device)
+            if metrics_output is not None:
+                print("Precision: ", metrics_output[0])
+                print("Recall: ", metrics_output[1])
+                print("mAP50: ", metrics_output[2])
+                print("F1 Score: ", metrics_output[3])
+            print("===========end evaluation=============")
