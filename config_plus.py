@@ -7,3 +7,5 @@ det_pool = [
 ]
 
 ds = '/home/insslab/Desktop/datasets/RicePestsV3/VOCdevkit/images/'
+model_predict_conf = 0.25
+model_predict_iou = 0.7

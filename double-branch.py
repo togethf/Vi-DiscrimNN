@@ -1,5 +1,5 @@
 from ultralytics import YOLO
-from config_plus import det_pool, ds
+from config_plus import det_pool, ds, model_predict_conf, model_predict_iou
 from commons.metrics import bbox_iou, get_batch_statistics, ap_per_class, xywh2xyxy
 from commons.dataset import DetectionDataset
 from torch.utils.data import DataLoader
@@ -9,8 +9,8 @@ from tqdm import tqdm
 
 def ensemble_yolo(img, model1, model2, iou_thr=0.5, conf_thr=0.4, device='cpu'):
     # 单张图片推理并融合
-    results1 = model1(img, verbose=False)[0]
-    results2 = model2(img, verbose=False)[0]
+    results1 = model1(img, verbose=False, iou=model_predict_iou, conf=model_predict_conf)[0]
+    results2 = model2(img, verbose=False, iou=model_predict_iou, conf=model_predict_conf)[0]
     dets1 = list(zip(results1.boxes.xyxy.cpu().numpy(), results1.boxes.conf.cpu().numpy(), results1.boxes.cls.cpu().numpy()))
     dets2 = list(zip(results2.boxes.xyxy.cpu().numpy(), results2.boxes.conf.cpu().numpy(), results2.boxes.cls.cpu().numpy()))
 
@@ -126,7 +126,7 @@ def evaluate_single(model_path, dataloader, device):
         for img in imgs:
             if img.ndim == 3:
                 img = img.unsqueeze(0)
-            results = model(img, verbose=False)[0]
+            results = model(img, verbose=False, conf=model_predict_conf, iou=model_predict_iou)[0]
             batch_outputs.append(results)
         sample_metrics += get_batch_statistics(batch_outputs, targets, device)
     if len(sample_metrics) == 0:
