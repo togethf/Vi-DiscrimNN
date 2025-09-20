@@ -82,45 +82,36 @@ def ap_per_class(tp, conf, pred_cls, target_cls):
     # Sort by objectness
     i = np.argsort(-conf)
     tp, conf, pred_cls = tp[i], conf[i], pred_cls[i]
-
-    # Find unique classes
     unique_classes = np.unique(target_cls)
-
-    # Create Precision-Recall curve and compute AP for each class
-    ap, p, r = [], [], []
+    ap, p, r, f1, class_ids, n_gt, n_p = [], [], [], [], [], [], []
     for c in unique_classes:
         i = pred_cls == c
-        n_gt = (target_cls == c).sum()  # Number of ground truth objects
-        n_p = i.sum()  # Number of predicted objects
-
-        if n_p == 0 and n_gt == 0:
-            continue
-        elif n_p == 0 or n_gt == 0:
+        n_gt_c = (target_cls == c).sum()
+        n_p_c = i.sum()
+        class_ids.append(c)
+        n_gt.append(n_gt_c)
+        n_p.append(n_p_c)
+        if n_p_c == 0 and n_gt_c == 0:
             ap.append(0)
             r.append(0)
             p.append(0)
+            f1.append(0)
+        elif n_p_c == 0 or n_gt_c == 0:
+            ap.append(0)
+            r.append(0)
+            p.append(0)
+            f1.append(0)
         else:
-            # Accumulate FPs and TPs
             fpc = (1 - tp[i]).cumsum()
             tpc = (tp[i]).cumsum()
-
-            # Recall
-            recall_curve = tpc / (n_gt + 1e-16)
-            r.append(recall_curve[-1])
-
-            # Precision
+            recall_curve = tpc / (n_gt_c + 1e-16)
             precision_curve = tpc / (tpc + fpc)
+            r.append(recall_curve[-1])
             p.append(precision_curve[-1])
-
-            # AP from recall-precision curve
             ap.append(compute_ap(recall_curve, precision_curve))
-
-    # Compute F1 score (harmonic mean of precision and recall)
-    p, r, ap = np.array(p), np.array(r), np.array(ap)
-    f1 = 2 * p * r / (p + r + 1e-16)
-
-    return np.mean(p), np.mean(r), np.mean(ap), np.mean(f1)
-
+            f1.append(2 * precision_curve[-1] * recall_curve[-1] / (precision_curve[-1] + recall_curve[-1] + 1e-16))
+    p, r, ap, f1 = np.array(p), np.array(r), np.array(ap), np.array(f1)
+    return np.mean(p), np.mean(r), np.mean(ap), np.mean(f1), p, r, ap, f1, np.array(class_ids), np.array(n_gt), np.array(n_p)
     
 def get_batch_statistics(outputs, targets, device, iou_threshold=0.5):
     """_summary_Compute true positives, predicted scores and predicted labels per sample
@@ -173,3 +164,10 @@ def get_batch_statistics(outputs, targets, device, iou_threshold=0.5):
                     detected_boxes += [box_index]
         batch_metrics.append([true_positives, pred_scores.cpu(), pred_labels.cpu()])
     return batch_metrics
+
+def print_per_class_metrics(mp, mr, map50, mf1, p, r, ap, f1, class_ids, n_gt, n_p, class_names=None, dataset_len=None):
+    print(f"{'Class':>15} {'Images':>8} {'Instances':>10} {'P':>10} {'R':>10} {'mAP50':>10} {'F1':>10}")
+    print(f"{'all':>15} {dataset_len if dataset_len is not None else '':>8} {int(np.sum(n_gt)):>10} {mp:10.3f} {mr:10.3f} {map50:10.3f} {mf1:10.3f}")
+    for i, cid in enumerate(class_ids):
+        cname = class_names[int(cid)] if class_names is not None and cid < len(class_names) else str(cid)
+        print(f"{cname:>15} {dataset_len if dataset_len is not None else '':>8} {n_gt[i]:>10} {p[i]:10.3f} {r[i]:10.3f} {ap[i]:10.3f} {f1[i]:10.3f}")

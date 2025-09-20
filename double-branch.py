@@ -1,6 +1,6 @@
 from ultralytics import YOLO
 from config_plus import det_pool, ds, model_predict_conf, model_predict_iou
-from commons.metrics import bbox_iou, get_batch_statistics, ap_per_class, xywh2xyxy
+from commons.metrics import bbox_iou, get_batch_statistics, ap_per_class, xywh2xyxy, print_per_class_metrics
 from commons.dataset import DetectionDataset
 from torch.utils.data import DataLoader
 import torch
@@ -144,7 +144,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch', type=int, default=1, help='batch size')
     parser.add_argument('--iou_thr', type=float, default=0.5, help='IoU阈值')
     parser.add_argument('--conf_thr', type=float, default=0.4, help='置信度阈值')
-    parser.add_argument('--ensemble', type=bool, default=False, help='是否使用ensemble')
+    parser.add_argument('--ensemble', action='store_true', help='是否使用ensemble')
     args = parser.parse_args()
 
     # det_pool在config_plus.py中定义，包含两个模型权重路径
@@ -153,17 +153,16 @@ if __name__ == "__main__":
     model_single_path = det_pool[2]
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    dataset = DetectionDataset(args.data, 'val', open=True)
+    dataset = DetectionDataset(args.data, 'val', use_open=True)
     dataloader = DataLoader(dataset, batch_size=args.batch, shuffle=False, collate_fn=DetectionDataset.collate_fn)
+    class_names = getattr(dataset, 'class_names', None)
     if args.ensemble:
         print("===========evaluation ensemble =============")
         ensemble_model = EnsembleYOLO(model1_path, model2_path, args.iou_thr, args.conf_thr, device)
         metrics_output = evaluate_ensemble(ensemble_model, dataloader, device)
         if metrics_output is not None:
-            print("Precision: ", metrics_output[0])
-            print("Recall: ", metrics_output[1])
-            print("mAP50: ", metrics_output[2])
-            print("F1 Score: ", metrics_output[3])
+            mp, mr, map50, mf1, p, r, ap, f1, class_ids, n_gt, n_p = metrics_output
+            print_per_class_metrics(mp, mr, map50, mf1, p, r, ap, f1, class_ids, n_gt, n_p, class_names=class_names, dataset_len=len(dataset))
         print("===========end evaluation=============")
     else:
         for i in [2, 3, 4]:
@@ -171,8 +170,6 @@ if __name__ == "__main__":
             print(f"===========evaluation single yolo[{i}]=============")
             metrics_output = evaluate_single(model_single_path, dataloader, device)
             if metrics_output is not None:
-                print("Precision: ", metrics_output[0])
-                print("Recall: ", metrics_output[1])
-                print("mAP50: ", metrics_output[2])
-                print("F1 Score: ", metrics_output[3])
+                mp, mr, map50, mf1, p, r, ap, f1, class_ids, n_gt, n_p = metrics_output
+                print_per_class_metrics(mp, mr, map50, mf1, p, r, ap, f1, class_ids, n_gt, n_p, class_names=class_names, dataset_len=len(dataset))
             print("===========end evaluation=============")

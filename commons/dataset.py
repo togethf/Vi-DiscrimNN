@@ -81,12 +81,23 @@ class ClassifyDataset(Dataset):
 
 
 class DetectionDataset(Dataset):
-    def __init__(self, img_dir, mode, open=None):
-        self.open = open
+    def __init__(self, img_dir, mode, use_open=None, class_names=None):
+        self.use_open = use_open
         self.mode = mode
         self.img_paths = [os.path.join(img_dir, mode, name) for name in os.listdir(os.path.join(img_dir, mode))]
         self.label_paths = [path.replace('images', 'labels').replace('jpg', 'txt') for path in self.img_paths]
         self.length = len(self.img_paths)
+        # 自动读取类别名
+        if class_names is not None:
+            self.class_names = class_names
+        else:
+            classes_path = os.path.join(img_dir, 'classes.txt')
+            if os.path.exists(classes_path):
+                with open(classes_path, 'r') as f:
+                    self.class_names = [line.strip() for line in f.readlines()]
+            else:
+                self.class_names = None  # 没有类别名文件时为None
+        self.num_classes = len(self.class_names) if self.class_names is not None else None
 
     def __len__(self):
         return self.length
@@ -94,7 +105,7 @@ class DetectionDataset(Dataset):
     def __getitem__(self, idx):
         image = self.img_paths[idx]
         # image = Image.open(img_path).convert('RGB')
-        if self.open:
+        if self.use_open:
             image = Image.open(image).convert('RGB')
             transform = transforms.Compose([
                 transforms.Resize(IMGSZ),
