@@ -1655,7 +1655,8 @@ def parse_model(d, ch, verbose=True):
             C3k2_HetConv1,
             C3k2_HetConv2,
             C2PSAiEMA,
-            VAELatent
+            VAELatent,
+            VAELatentSE
         }
     )
     repeat_modules = frozenset(  # modules with 'repeat' arguments

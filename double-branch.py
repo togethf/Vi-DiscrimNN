@@ -10,6 +10,7 @@ from typing import List, Optional, Tuple
 import os
 import csv
 import matplotlib.pyplot as plt
+import numpy as np
 
 def _compute_iou(box_a: np.ndarray, box_b: np.ndarray, device: torch.device) -> float:
     iou = bbox_iou(
@@ -220,6 +221,133 @@ def sweep_ensemble_size(det_pool, max_k, method, iou_thr, conf_thr, dataloader, 
         plt.savefig(fig_path, dpi=200)
         print(f"Saved CSV to {csv_path} and figure to {fig_path}")
 
+
+def sweep_iou_threshold(
+    det_pool,
+    ensemble_sets: List[List[int]],
+    method: str,
+    iou_values: List[float],
+    conf_thr: float,
+    dataloader,
+    device,
+    out_dir: str,
+):
+    os.makedirs(out_dir, exist_ok=True)
+    # If no explicit sets provided, default to first two models
+    if not ensemble_sets:
+        ensemble_sets = [[0, 1]] if len(det_pool) >= 2 else [[0]]
+
+    for chosen in ensemble_sets:
+        sub_pool = [det_pool[i] for i in chosen]
+        label = 'ens[' + ','.join(map(str, chosen)) + ']'
+        rows = []
+        xs = []
+        map50s = []
+        f1s = []
+        csv_path = os.path.join(out_dir, f'sweep_iou_{"_".join(map(str, chosen))}.csv')
+        with open(csv_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['iou', 'mp', 'mr', 'map50', 'mf1'])
+            for iou_thr in iou_values:
+                print(f"=========== sweep IoU {iou_thr:.2f} on {label} =============")
+                metrics_output = evaluate_ensemble_once(
+                    det_pool=sub_pool,
+                    num_models=len(sub_pool),
+                    method=method,
+                    iou_thr=float(iou_thr),
+                    conf_thr=conf_thr,
+                    dataloader=dataloader,
+                    device=device,
+                )
+                if metrics_output is not None:
+                    mp, mr, map50, mf1, p, r, ap, f1, class_ids, n_gt, n_p = metrics_output
+                    xs.append(float(iou_thr))
+                    map50s.append(map50)
+                    f1s.append(mf1)
+                    writer.writerow([float(iou_thr), mp, mr, map50, mf1])
+                print("=========== end sweep =============")
+        if len(xs) > 0:
+            plt.figure(figsize=(6,4))
+            plt.plot(xs, map50s, marker='o', label='mAP@0.5')
+            plt.plot(xs, f1s, marker='s', label='mF1')
+            plt.xlabel('IoU threshold for clustering')
+            plt.ylabel('Score')
+            plt.title(f'IoU vs performance {label}')
+            plt.grid(True, linestyle='--', alpha=0.5)
+            plt.legend()
+            fig_path = os.path.join(out_dir, f'sweep_iou_{"_".join(map(str, chosen))}.png')
+            plt.tight_layout()
+            plt.savefig(fig_path, dpi=200)
+            # Print best IoU by map50 and F1
+            best_map50_idx = int(np.argmax(map50s))
+            best_f1_idx = int(np.argmax(f1s))
+            print(f"Best mAP@0.5 at IoU={xs[best_map50_idx]:.3f}: {map50s[best_map50_idx]:.4f}")
+            print(f"Best mF1 at IoU={xs[best_f1_idx]:.3f}: {f1s[best_f1_idx]:.4f}")
+            print(f"Saved CSV to {csv_path} and figure to {fig_path}")
+
+
+def sweep_conf_threshold(
+    det_pool,
+    ensemble_sets: List[List[int]],
+    method: str,
+    conf_values: List[float],
+    iou_thr: float,
+    dataloader,
+    device,
+    out_dir: str,
+):
+    os.makedirs(out_dir, exist_ok=True)
+    # If no explicit sets provided, default to first two models
+    if not ensemble_sets:
+        ensemble_sets = [[0, 1]] if len(det_pool) >= 2 else [[0]]
+
+    for chosen in ensemble_sets:
+        sub_pool = [det_pool[i] for i in chosen]
+        label = 'ens[' + ','.join(map(str, chosen)) + ']'
+        rows = []
+        xs = []
+        map50s = []
+        f1s = []
+        csv_path = os.path.join(out_dir, f'sweep_conf_{"_".join(map(str, chosen))}.csv')
+        with open(csv_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['conf', 'mp', 'mr', 'map50', 'mf1'])
+            for conf_thr in conf_values:
+                print(f"=========== sweep Conf {conf_thr:.2f} on {label} =============")
+                metrics_output = evaluate_ensemble_once(
+                    det_pool=sub_pool,
+                    num_models=len(sub_pool),
+                    method=method,
+                    iou_thr=float(iou_thr),
+                    conf_thr=float(conf_thr),
+                    dataloader=dataloader,
+                    device=device,
+                )
+                if metrics_output is not None:
+                    mp, mr, map50, mf1, p, r, ap, f1, class_ids, n_gt, n_p = metrics_output
+                    xs.append(float(conf_thr))
+                    map50s.append(map50)
+                    f1s.append(mf1)
+                    writer.writerow([float(conf_thr), mp, mr, map50, mf1])
+                print("=========== end sweep =============")
+        if len(xs) > 0:
+            plt.figure(figsize=(6,4))
+            plt.plot(xs, map50s, marker='o', label='mAP@0.5')
+            plt.plot(xs, f1s, marker='s', label='mF1')
+            plt.xlabel('Confidence threshold')
+            plt.ylabel('Score')
+            plt.title(f'Conf vs performance {label}')
+            plt.grid(True, linestyle='--', alpha=0.5)
+            plt.legend()
+            fig_path = os.path.join(out_dir, f'sweep_conf_{"_".join(map(str, chosen))}.png')
+            plt.tight_layout()
+            plt.savefig(fig_path, dpi=200)
+            best_map50_idx = int(np.argmax(map50s))
+            best_f1_idx = int(np.argmax(f1s))
+            print(f"Best mAP@0.5 at Conf={xs[best_map50_idx]:.3f}: {map50s[best_map50_idx]:.4f}")
+            print(f"Best mF1 at Conf={xs[best_f1_idx]:.3f}: {f1s[best_f1_idx]:.4f}")
+            print(f"Saved CSV to {csv_path} and figure to {fig_path}")
+
 def _parse_indices(s: str, total: int):
     if not s:
         return list(range(total))
@@ -420,7 +548,7 @@ if __name__ == "__main__":
     parser.add_argument('--data', type=str, default= ds, help='验证集图片目录')
     parser.add_argument('--batch', type=int, default=1, help='batch size')
     parser.add_argument('--iou_thr', type=float, default=0.5, help='IoU阈值')
-    parser.add_argument('--conf_thr', type=float, default=0.4, help='置信度阈值')
+    parser.add_argument('--conf_thr', type=float, default=0.3, help='置信度阈值')
     parser.add_argument('--ensemble', action='store_true', help='是否使用ensemble')
     parser.add_argument('--num_models', type=int, default=2, help='参与融合的模型数量')
     parser.add_argument('--ensemble_models', type=str, default='', help='逗号分隔的模型索引（优先于num_models），如 "0,2,5"')
@@ -429,6 +557,12 @@ if __name__ == "__main__":
     parser.add_argument('--sweep_max', type=int, default=0, help='若>0，则从1..sweep_max做ensemble规模扫参并可视化')
     parser.add_argument('--out_dir', type=str, default='./runs/ensemble_sweep', help='结果保存目录')
     parser.add_argument('--sweep_sets', type=str, default='', help='自定义多组ensemble索引，组间用;分隔，如 "0,2;1,3,5"')
+    parser.add_argument('--sweep_iou', action='store_true', help='对IoU阈值进行扫参并可视化')
+    parser.add_argument('--sweep_iou_values', type=str, default='0.3,0.35,0.4,0.45,0.5,0.55,0.6,0.65,0.7', help='逗号分隔的IoU阈值列表，如 "0.3,0.4,0.5,0.6,0.7"')
+    parser.add_argument('--sweep_iou_sets', type=str, default='', help='对哪些ensemble组合进行IoU扫参，格式与 --sweep_sets 相同；为空则默认[0,1]或[0]')
+    parser.add_argument('--sweep_conf', action='store_true', help='对置信度阈值进行扫参并可视化')
+    parser.add_argument('--sweep_conf_values', type=str, default='0.1,0.2,0.3,0.4,0.5,0.6', help='逗号分隔的置信度阈值列表，如 "0.2,0.3,0.4,0.5"')
+    parser.add_argument('--sweep_conf_sets', type=str, default='', help='对哪些ensemble组合进行Conf扫参，格式与 --sweep_sets 相同；为空则默认[0,1]或[0]')
 
     parser.add_argument('--compare', action='store_true', help='对比单个基础模型与ensemble性能')
     parser.add_argument('--compare_models', type=str, default='', help='逗号分隔的模型索引，如 "0,1,2"；为空表示使用全部')
@@ -517,6 +651,42 @@ if __name__ == "__main__":
                 device=device,
                 out_dir=args.out_dir,
             )
+    elif args.ensemble and args.sweep_iou:
+        # 解析IoU列表
+        try:
+            iou_values = [float(x.strip()) for x in args.sweep_iou_values.split(',') if x.strip()]
+        except Exception:
+            iou_values = [0.3, 0.4, 0.5, 0.6, 0.7]
+        # 解析组合
+        ens_sets = _parse_ensemble_sets(args.sweep_iou_sets, len(det_pool)) if args.sweep_iou_sets else []
+        sweep_iou_threshold(
+            det_pool=det_pool,
+            ensemble_sets=ens_sets,
+            method=args.method,
+            iou_values=iou_values,
+            conf_thr=args.conf_thr,
+            dataloader=dataloader,
+            device=device,
+            out_dir=args.out_dir,
+        )
+    elif args.ensemble and args.sweep_conf:
+        # 解析Conf列表
+        try:
+            conf_values = [float(x.strip()) for x in args.sweep_conf_values.split(',') if x.strip()]
+        except Exception:
+            conf_values = [0.2, 0.3, 0.4, 0.5]
+        # 解析组合
+        ens_sets = _parse_ensemble_sets(args.sweep_conf_sets, len(det_pool)) if args.sweep_conf_sets else []
+        sweep_conf_threshold(
+            det_pool=det_pool,
+            ensemble_sets=ens_sets,
+            method=args.method,
+            conf_values=conf_values,
+            iou_thr=args.iou_thr,
+            dataloader=dataloader,
+            device=device,
+            out_dir=args.out_dir,
+        )
     elif args.ensemble:
         print("===========evaluation ensemble =============")
         if args.ensemble_models and args.ensemble_models.strip():
@@ -558,7 +728,7 @@ if __name__ == "__main__":
             print_per_class_metrics(mp, mr, map50, mf1, p, r, ap, f1, class_ids, n_gt, n_p, class_names=class_names, dataset_len=len(dataset))
         print("===========end evaluation=============")
     else:
-        for i in [3,4,5]:
+        for i in [0,1,4]:
             model_single_path = det_pool[i]
             print(f"===========evaluation single yolo[{i}]=============")
             metrics_output = evaluate_single(model_single_path, dataloader, device)
