@@ -728,7 +728,7 @@ if __name__ == "__main__":
             print_per_class_metrics(mp, mr, map50, mf1, p, r, ap, f1, class_ids, n_gt, n_p, class_names=class_names, dataset_len=len(dataset))
         print("===========end evaluation=============")
     else:
-        for i in [0,1,4]:
+        for i in [2]:
             model_single_path = det_pool[i]
             print(f"===========evaluation single yolo[{i}]=============")
             metrics_output = evaluate_single(model_single_path, dataloader, device)
