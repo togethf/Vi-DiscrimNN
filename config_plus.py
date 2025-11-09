@@ -9,5 +9,6 @@ det_pool = [
 ds = '/home/insslab/Desktop/datasets/RicePestsV3/VOCdevkit/images/'
 # model_predict_conf = 0.25
 # model_predict_conf = 0.01 # vae效果不错
-model_predict_conf = 0.001
+# model_predict_conf = 0.001 # 初版只看map50
+model_predict_conf = 0.5
 model_predict_iou = 0.7
