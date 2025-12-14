@@ -2,7 +2,7 @@ import torch
 from ultralytics import YOLO
 from config import tag_config, pestv3_config
 from commons.dataset import ClassifyDataset
-from DisNet import DisNet
+from old_module.DisNet import DisNet
 from torch import nn
 from torch.utils.data import DataLoader, random_split, WeightedRandomSampler
 from sklearn.utils.class_weight import compute_class_weight

@@ -5,6 +5,29 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "run-paper3-sota",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "experiments/p3/run_p3.py",
+            "cwd": "${workspaceFolder}",
+            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
+            "console": "integratedTerminal",
+            "args": [
+                "--preset", "sota",
+            ]
+        },
+        {
+            "name": "run-paper3-base",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "experiments/p3/run_p3.py",
+            "cwd": "${workspaceFolder}",
+            "python": "/home/insslab/miniconda3/envs/Vi-DiscrimNN/bin/python",
+            "console": "integratedTerminal",
+            "args": [
+            ]
+        },
+        {
             "name": "outlier-coco-val",
             "type": "debugpy",
             "request": "launch",

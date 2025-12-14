@@ -1,0 +1,23 @@
+ {
+  "iou": {
+    "description": "Run with base model",
+    "args": [
+    ]
+  },
+  "sota": {
+    "description": "Run with SOTA settings (example).",
+    "args": [
+      "--ensemble",
+      "--method", "wbf",
+      "--compare",
+      "--compare_ensemble_models", "0,3"
+
+    ]
+  },
+  "default": {
+    "description": "Default run settings. Run with base model",
+    "args": [
+      
+    ]
+  }
+}

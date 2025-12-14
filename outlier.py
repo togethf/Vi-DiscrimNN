@@ -213,12 +213,12 @@ def __evaluation(model, val_dataloader, device):
 def val(model, dconfig):
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     X_e = dconfig['output_easy_dir'].replace('easy', os.path.join('easy', 'images'))
-    dataset = DetectionDataset(X_e, 'val', open=True)
+    dataset = DetectionDataset(X_e, 'val', use_open=True)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=DetectionDataset.collate_fn)
     performance_e = __evaluation(model, dataloader, device)
     print("validate on easy done, map50: ", performance_e[2])
     X_d = dconfig['output_diff_dir'].replace('diff', os.path.join('diff', 'images'))
-    dataset = DetectionDataset(X_d, 'val', open=True)
+    dataset = DetectionDataset(X_d, 'val', use_open=True)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=DetectionDataset.collate_fn)
     performance_d = __evaluation(model, dataloader, device)
     print("validate on diff done, map50: ", performance_d[2])
@@ -301,7 +301,7 @@ def main():
     if opt.validate:
         ap_baseline = []
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        dataset = DetectionDataset(dconfig['source_images'], 'val', open=True)
+        dataset = DetectionDataset(dconfig['source_images'], 'val', use_open=True)
         dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=DetectionDataset.collate_fn)
         for model in model_list:
             print("validate name: ", model.model_name)

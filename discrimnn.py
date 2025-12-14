@@ -317,7 +317,7 @@ if __name__ == "__main__":
         loc, max_r = max_edge(r, cs, idx, ap_mode)
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     model = ViDiscrimNN(c_models[loc], mconfig, mode, eg_level, 0.95).to(device)
-    dataset = DetectionDataset(dconfig['source_images'], 'val', open=True)
+    dataset = DetectionDataset(dconfig['source_images'], 'val', use_open=True)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=DetectionDataset.collate_fn)
     # dataloader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=16, collate_fn=DetectionDataset.collate_fn)
 
