@@ -10,3 +10,5 @@ expN
 .pytest_cache
 nohup.out
 experiments
+mmdetection
+work_dirs
