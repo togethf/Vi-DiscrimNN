@@ -12,6 +12,105 @@ import csv
 import matplotlib.pyplot as plt
 import numpy as np
 
+from mmdet.apis import init_detector, inference_detector
+
+class MMDetWrapper:
+    """
+    让 MMDetection 3.x 模型表现得像 Ultralytics YOLO 模型。
+    (修正版 v2：增加了 RGB -> BGR 转换，修复颜色通道不匹配导致的精度下降)
+    """
+    def __init__(self, config_path, checkpoint_path, device='cuda:0'):
+        # 初始化模型
+        self.model = init_detector(config_path, checkpoint_path, device=device)
+        self.device = device
+        self.names = self.model.dataset_meta.get('classes', {}) if hasattr(self.model, 'dataset_meta') else {}
+
+    def __call__(self, source, conf=0.25, iou=0.7, verbose=False):
+        """
+        模拟 YOLO 的调用接口
+        """
+        # 1. 输入处理
+        if isinstance(source, torch.Tensor):
+            # source shape: [1, 3, H, W] or [3, H, W] (RGB, 0-1 normalized)
+            img = source.cpu().numpy()
+            if img.ndim == 4:
+                img = img[0]
+            
+            # [C, H, W] -> [H, W, C]
+            if img.shape[0] == 3: 
+                img = img.transpose(1, 2, 0)
+            
+            # 反归一化: 0-1 float -> 0-255 uint8
+            if img.max() <= 1.05:
+                img = (img * 255).astype(np.uint8)
+            else:
+                img = img.astype(np.uint8)
+            
+            # === 关键修复：RGB 转 BGR ===
+            # DetectionDataset (PIL) 读入的是 RGB
+            # MMDetection (OpenCV) 期望的是 BGR
+            img = img[..., ::-1] 
+            # ==========================
+
+        elif isinstance(source, (str, np.ndarray)):
+            # 如果输入直接是路径或numpy array，通常假设已经是正确的格式
+            # 但如果外部用 PIL 读取传入 numpy，这里可能也需要处理，视情况而定
+            img = source
+        else:
+            raise TypeError(f"Unsupported input type: {type(source)}")
+
+        # 2. 推理
+        result = inference_detector(self.model, img)
+        
+        # 确保 result 是列表
+        if not isinstance(result, (list, tuple)):
+            result_list = [result]
+        else:
+            result_list = result
+
+        # 3. 结果封装
+        yolo_results = []
+        for det_sample in result_list:
+            pred = det_sample.pred_instances
+            
+            # 提取数据
+            scores = pred.scores
+            bboxes = pred.bboxes
+            labels = pred.labels
+            
+            # 应用置信度过滤
+            keep = scores > conf
+            scores = scores[keep]
+            bboxes = bboxes[keep]
+            labels = labels[keep]
+            
+            # 构造结果对象
+            yolo_results.append(self._make_yolo_result(bboxes, scores, labels))
+            
+        return yolo_results
+
+    def predict(self, source, **kwargs):
+        return self(source, **kwargs)[0]
+
+    def _make_yolo_result(self, bboxes, scores, labels):
+        class MockBoxes:
+            def __init__(self, xyxy, conf, cls, dev):
+                self.xyxy = xyxy.to(dev)
+                self.conf = conf.to(dev)
+                self.cls = cls.to(dev)
+                if xyxy.shape[0] > 0:
+                    self.data = torch.cat((self.xyxy, self.conf.unsqueeze(1), self.cls.unsqueeze(1)), dim=1)
+                else:
+                    self.data = torch.empty((0, 6), device=dev)
+
+        class MockResult:
+            def __init__(self, boxes, names):
+                self.boxes = boxes
+                self.names = names
+                
+        boxes = MockBoxes(bboxes, scores, labels, self.device)
+        return MockResult(boxes, self.names)
+
 def _compute_iou(box_a: np.ndarray, box_b: np.ndarray, device: torch.device) -> float:
     iou = bbox_iou(
         torch.tensor(box_a, dtype=torch.float32, device=device).unsqueeze(0),
@@ -209,7 +308,21 @@ def evaluate_single(model_path, dataloader, device):
     2. 循环10个IoU阈值，在内存中计算统计数据。
     3. 返回 12 个值，增加了 map50_95。
     """
-    model = YOLO(model_path)
+
+    """
+    修改：评估函数，支持 YOLO 和 MMDetection
+    """
+    # === 修改开始 ===
+    if isinstance(model_path, str) and ";" in model_path:
+        # 解析 MMDetection 路径: "config.py;checkpoint.pth"
+        config_file, checkpoint_file = model_path.split(";")
+        print(f"Loading MMDetection model...\nConfig: {config_file}\nCheckpoint: {checkpoint_file}")
+        # 使用我们上面定义的 Wrapper
+        model = MMDetWrapper(config_file, checkpoint_file, device=device)
+    else:
+        # 原有的 YOLO 加载
+        model = YOLO(model_path)
+    # === 修改结束 ===
     img_size = 640  # 或根据实际图片尺寸动态获取
 
     # 1. 运行一次 dataloader 获取所有预测和目标
@@ -861,7 +974,7 @@ if __name__ == "__main__":
             print_per_class_metrics(mp, mr, map50, mf1, p, r, ap, f1, class_ids, n_gt, n_p, class_names=class_names, dataset_len=len(dataset))
         print("===========end evaluation=============")
     else:
-        for i in [2]:
+        for i in range(0, 10):
             model_single_path = det_pool[i]
             print(f"===========evaluation single yolo[{i}]=============")
             metrics_output = evaluate_single(model_single_path, dataloader, device)
